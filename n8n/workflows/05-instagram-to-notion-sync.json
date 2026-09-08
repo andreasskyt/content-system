@@ -1,0 +1,560 @@
+{
+  "name": "C: Instagram → Notion Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ig-user-id",
+              "name": "IG_USER_ID",
+              "value": "[IG_ACCOUNT_ID]",
+              "type": "string"
+            },
+            {
+              "id": "notion-db",
+              "name": "NOTION_IG_MY_CONTENT_DB",
+              "value": "[NOTION_IG_MY_CONTENT_DB_ID]",
+              "type": "string"
+            },
+            {
+              "id": "0c4b7663-51ed-48cc-a746-c1054bcd07ae",
+              "name": "NOTION_CONTENT_PRODUCTION_DB",
+              "value": "[NOTION_CPP_DB_ID]",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "9b5b1e0a-cde2-402b-b8ff-46d7ba63239f",
+      "name": "SET Variables",
+      "notes": "Instagram User ID og Notion Database ID. Access token kommer fra Meta Graph API credential."
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.IG_USER_ID }}/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count"
+            },
+            {
+              "name": "limit",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "916a64e5-f8f5-47fc-9068-5f1b60fcef17",
+      "name": "1. Instagram – Hent alle posts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        432,
+        0
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "REPLACE_ME",
+          "name": "[OAuth2]"
+        },
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Meta Graph API — System User token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      },
+      "notes": "Henter alle IG media posts med basic metrics. Pagination håndteres i næste node."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse alle IG posts og håndter pagination\nconst response = $input.first().json;\nconst posts = response.data || [];\n\n// Filtrér kun VIDEO og CAROUSEL_ALBUM (skip IMAGE hvis du vil)\nconst parsedPosts = posts.map(post => {\n  // Udtræk titel fra caption (første linje)\n  const caption = post.caption || '';\n  const title = caption.split('\\n')[0].substring(0, 200) || 'Untitled IG Post';\n  \n  return {\n    json: {\n      igPostId: post.id,\n      title: title,\n      caption: caption,\n      mediaType: post.media_type,\n      mediaUrl: post.media_url || '',\n      thumbnailUrl: post.thumbnail_url || post.media_url || '',\n      permalink: post.permalink,\n      timestamp: post.timestamp,\n      likes: post.like_count || 0,\n      comments: post.comments_count || 0\n    }\n  };\n});\n\nreturn parsedPosts;"
+      },
+      "id": "d8cf7003-45d5-4e59-97a5-b32660215954",
+      "name": "2. Parse IG Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        0
+      ],
+      "notes": "Parser alle posts, udtrækker titel fra caption (første linje), og formaterer data."
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.igPostId }}/insights",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "metric",
+              "value": "views,reach,saved,shares"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "627b8039-f6d9-4fdc-bbae-e8152c44a915",
+      "name": "3. Instagram – Hent Insights per post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        896,
+        0
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "REPLACE_ME",
+          "name": "[OAuth2]"
+        },
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Meta Graph API — System User token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      },
+      "notes": "Henter detaljerede insights (views, reach, saves, shares) per post. neverError=true så den ikke stopper ved fejl på enkelte posts."
+    },
+    {
+      "parameters": {
+        "jsCode": "const insightsResponses = $input.all();\nconst postData = $('2. Parse IG Posts').all();\n\nreturn insightsResponses.map((item, index) => {\n  const post = postData[index] ? postData[index].json : {};\n  const insightsData = item.json.data || [];\n  \n  const insights = {};\n  for (const metric of insightsData) {\n    if (metric.name && metric.values && metric.values[0]) {\n      insights[metric.name] = metric.values[0].value || 0;\n    }\n  }\n  \n  return {\n    json: {\n      igPostId: post.igPostId,\n      title: post.title,\n      caption: post.caption,\n      mediaType: post.mediaType,\n      mediaUrl: post.mediaUrl,\n      thumbnailUrl: post.thumbnailUrl,\n      permalink: post.permalink,\n      timestamp: post.timestamp,\n      likes: post.likes,\n      comments: post.comments,\n      views: insights.views || 0,\n      reach: insights.reach || 0,\n      saves: insights.saved || 0,\n      shares: insights.shares || 0\n    }\n  };\n});"
+      },
+      "id": "6973ff7a-fc7d-4d50-b58c-43d22c709928",
+      "name": "4. Merge Post + Insights",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        240
+      ],
+      "notes": "Samler post data og insights til ét objekt per post."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.notion.com/v1/databases/{{ $('SET Variables').item.json.NOTION_IG_MY_CONTENT_DB }}/query",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"filter\": { \"property\": \"Post ID\", \"rich_text\": { \"equals\": $json.igPostId } } }) }}",
+        "options": {}
+      },
+      "id": "8dc91475-9e80-451a-badb-95ab074eaa36",
+      "name": "5. Notion – Søg på IG Post ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        208,
+        240
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[OpenAI API key (Header Auth: Authorization: Bearer <key>)]"
+        },
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      },
+      "notes": "Søger i Notion efter eksisterende page med matchende IG Post ID."
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst allPosts = $('4. Merge Post + Insights').all();\n\nreturn items.map((item, index) => {\n  const notionResponse = item.json;\n  const currentPost = allPosts[index].json;\n  \n  const found = notionResponse.results && notionResponse.results.length > 0;\n  \n  // Hent eksisterende Platforms fra Notion page\n  let existingPlatforms = [];\n  if (found && notionResponse.results[0].properties?.Platforms?.multi_select) {\n    existingPlatforms = notionResponse.results[0].properties.Platforms.multi_select.map(p => p.name);\n  }\n  \n  // Tilføj Instagram hvis den ikke allerede er der\n  if (!existingPlatforms.includes('Instagram')) {\n    existingPlatforms.push('Instagram');\n  }\n  \n  return {\n    json: {\n      notionPageId: found ? notionResponse.results[0].id : null,\n      found: found,\n      platforms: existingPlatforms,\n      igPostId: currentPost.igPostId,\n      title: currentPost.title,\n      caption: currentPost.caption,\n      mediaType: currentPost.mediaType,\n      mediaUrl: currentPost.mediaUrl,\n      thumbnailUrl: currentPost.thumbnailUrl,\n      permalink: currentPost.permalink,\n      timestamp: currentPost.timestamp,\n      likes: currentPost.likes,\n      comments: currentPost.comments,\n      views: currentPost.views,\n      reach: currentPost.reach,\n      saves: currentPost.saves,\n      shares: currentPost.shares\n    }\n  };\n});"
+      },
+      "id": "2eaf1cb6-4dde-41a7-8990-f40c50678e63",
+      "name": "6. Evaluer IG Post ID Match",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        240
+      ],
+      "notes": "Tjekker om Notion page blev fundet. Bevarer eksisterende Platforms og tilføjer Instagram."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ig-found-check",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6bddfbfa-553d-42a9-bbd7-04cd078be895",
+      "name": "7. IF – Fundet på IG Post ID?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        688,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.notion.com/v1/pages/{{ $json.notionPageId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"cover\": { \"type\": \"external\", \"external\": { \"url\": $json.thumbnailUrl || $json.permalink } }, \"properties\": { \"Views\": { \"number\": $json.views }, \"Likes\": { \"number\": $json.likes }, \"Comments\": { \"number\": $json.comments }, \"Saves\": { \"number\": $json.saves }, \"Shares\": { \"number\": $json.shares }, \"Reach\": { \"number\": $json.reach }, \"Post ID\": { \"rich_text\": [{ \"text\": { \"content\": $json.igPostId } }] }, \"URL\": { \"url\": $json.permalink }, \"Thumbnail URL\": { \"url\": $json.thumbnailUrl || $json.permalink } } }) }}",
+        "options": {}
+      },
+      "id": "1c80c1ab-86a6-4314-a2bd-50dd7684b4ad",
+      "name": "8. Notion – Opdater IG Metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1088,
+        192
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[OpenAI API key (Header Auth: Authorization: Bearer <key>)]"
+        },
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      },
+      "notes": "Opdaterer eksisterende Notion page med IG metrics, cover image, og tilføjer Instagram til Platforms."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.notion.com/v1/pages/",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"parent\": { \"database_id\": $('SET Variables').first().json.NOTION_IG_MY_CONTENT_DB }, \"cover\": { \"type\": \"external\", \"external\": { \"url\": $json.thumbnailUrl || $json.permalink } }, \"properties\": { \"Caption\": { \"title\": [{ \"text\": { \"content\": $json.title } }] }, \"Post ID\": { \"rich_text\": [{ \"text\": { \"content\": $json.igPostId } }] }, \"URL\": { \"url\": $json.permalink }, \"Thumbnail URL\": { \"url\": $json.thumbnailUrl || $json.permalink }, \"Post Date\": { \"date\": { \"start\": $json.timestamp } }, \"Views\": { \"number\": $json.views }, \"Likes\": { \"number\": $json.likes }, \"Comments\": { \"number\": $json.comments }, \"Saves\": { \"number\": $json.saves }, \"Shares\": { \"number\": $json.shares }, \"Reach\": { \"number\": $json.reach } } }) }}",
+        "options": {}
+      },
+      "id": "96a0cb2f-9df0-4abe-ac8c-e0976bfb7fbf",
+      "name": "9. Notion – Opret Ny Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1088,
+        432
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[OpenAI API key (Header Auth: Authorization: Bearer <key>)]"
+        },
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      },
+      "notes": "Opretter ny Notion page med IG data. Default aspect ratio 9:16 (de fleste IG posts er Reels)."
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "[SLACK_CHANNEL_ID]",
+          "mode": "list",
+          "cachedResultName": "content"
+        },
+        "text": "=✅ *Instagram Metrics Sync Complete*\n━━━━━━━━━━━━━━━━━━\n📊 All Instagram content metrics updated in Notion.\n🕐 {{ $now.format('DD – HH:mm') }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1344,
+        192
+      ],
+      "id": "96087b38-0d9b-41ec-8c82-127e8714b9bb",
+      "name": "Slack – IG Sync Done",
+      "webhookId": "7245e71d-be9f-4123-be0b-c1fe10b70a32",
+      "executeOnce": true,
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_ME",
+          "name": "[Slack Bot]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "[SLACK_CHANNEL_ID]",
+          "mode": "list",
+          "cachedResultName": "content"
+        },
+        "text": "=✅ *Instagram Metrics Sync Complete*\n━━━━━━━━━━━━━━━━━━\n📊 All Instagram content metrics updated in Notion.\n🕐 {{ $now.format('DD – HH:mm') }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1344,
+        432
+      ],
+      "id": "4f16fee4-5b8d-43ef-8131-73b695aa91af",
+      "name": "Slack – IG Sync Done1",
+      "webhookId": "7245e71d-be9f-4123-be0b-c1fe10b70a32",
+      "executeOnce": true,
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_ME",
+          "name": "[Slack Bot]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            },
+            {
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "ecb80f24-04a6-46eb-9986-099b41941d54",
+      "name": "Everyday at 6:00 am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "notes": "Kører dagligt kl. 06:30 — 30 min efter YouTube sync."
+    }
+  ],
+  "connections": {
+    "SET Variables": {
+      "main": [
+        [
+          {
+            "node": "1. Instagram – Hent alle posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Instagram – Hent alle posts": {
+      "main": [
+        [
+          {
+            "node": "2. Parse IG Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Parse IG Posts": {
+      "main": [
+        [
+          {
+            "node": "3. Instagram – Hent Insights per post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Instagram – Hent Insights per post": {
+      "main": [
+        [
+          {
+            "node": "4. Merge Post + Insights",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Merge Post + Insights": {
+      "main": [
+        [
+          {
+            "node": "5. Notion – Søg på IG Post ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Notion – Søg på IG Post ID": {
+      "main": [
+        [
+          {
+            "node": "6. Evaluer IG Post ID Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Evaluer IG Post ID Match": {
+      "main": [
+        [
+          {
+            "node": "7. IF – Fundet på IG Post ID?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7. IF – Fundet på IG Post ID?": {
+      "main": [
+        [
+          {
+            "node": "8. Notion – Opdater IG Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "9. Notion – Opret Ny Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "9. Notion – Opret Ny Page": {
+      "main": [
+        [
+          {
+            "node": "Slack – IG Sync Done1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8. Notion – Opdater IG Metrics": {
+      "main": [
+        [
+          {
+            "node": "Slack – IG Sync Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Everyday at 6:00 am": {
+      "main": [
+        [
+          {
+            "node": "SET Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "Europe/Oslo",
+    "timeSavedPerExecution": 60,
+    "errorWorkflow": "REPLACE_WITH_YOUR_ERROR_WORKFLOW_ID"
+  },
+  "pinData": {},
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

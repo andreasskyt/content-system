@@ -1,0 +1,299 @@
+{
+  "title": "Content Production Pipeline",
+  "description": "",
+  "properties": {
+    "Recording Date": {
+      "type": "date",
+      "date": {}
+    },
+    "Include CTA?": {
+      "type": "checkbox",
+      "checkbox": {}
+    },
+    "Raw Footage (drive link)": {
+      "type": "url",
+      "url": {}
+    },
+    "Upload Date": {
+      "type": "date",
+      "date": {}
+    },
+    "Instagram Post": {
+      "type": "relation",
+      "relation": {
+        "database": "[see docs/02-notion-schema.md]",
+        "type": "dual_property"
+      }
+    },
+    "Caption": {
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Frame.io link": {
+      "type": "url",
+      "url": {}
+    },
+    "Page last edited time": {
+      "type": "last_edited_time",
+      "last_edited_time": {}
+    },
+    "Final Video (drive)": {
+      "type": "url",
+      "url": {}
+    },
+    "Thumbnail": {
+      "type": "files",
+      "files": {}
+    },
+    "Created time": {
+      "type": "created_time",
+      "created_time": {}
+    },
+    "Thumbnail URL": {
+      "type": "url",
+      "url": {}
+    },
+    "Page last edited by": {
+      "type": "last_edited_by",
+      "last_edited_by": {}
+    },
+    "YouTube Post": {
+      "type": "relation",
+      "relation": {
+        "database": "[see docs/02-notion-schema.md]",
+        "type": "dual_property"
+      }
+    },
+    "Inspiration 1": {
+      "type": "url",
+      "url": {}
+    },
+    "Carousel Images": {
+      "type": "files",
+      "files": {}
+    },
+    "Posted on YT": {
+      "type": "checkbox",
+      "checkbox": {}
+    },
+    "Posted on IG": {
+      "type": "checkbox",
+      "checkbox": {}
+    },
+    "Posted on FB": {
+      "type": "checkbox",
+      "checkbox": {}
+    },
+    "Funnel Stage": {
+      "type": "select",
+      "select": {
+        "options": [
+          {
+            "name": "ToFu - Problem Aware",
+            "color": "green"
+          },
+          {
+            "name": "MoFu - Solution Aware",
+            "color": "yellow"
+          },
+          {
+            "name": "BoFu - Converting",
+            "color": "red"
+          }
+        ]
+      }
+    },
+    "Video Format": {
+      "type": "select",
+      "select": {
+        "options": [
+          {
+            "name": "Vertical (9:16)",
+            "color": "yellow"
+          },
+          {
+            "name": "Landscape (16:9)",
+            "color": "purple"
+          },
+          {
+            "name": "Square (1:1)",
+            "color": "red"
+          }
+        ]
+      }
+    },
+    "YouTube Title": {
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Type": {
+      "type": "select",
+      "select": {
+        "options": [
+          {
+            "name": "Short Form",
+            "color": "purple"
+          },
+          {
+            "name": "Carousel",
+            "color": "purple"
+          },
+          {
+            "name": "Long Form",
+            "color": "red"
+          },
+          {
+            "name": "Story",
+            "color": "purple"
+          },
+          {
+            "name": "LinkedIn",
+            "color": "blue"
+          },
+          {
+            "name": "Newsletter",
+            "color": "gray"
+          },
+          {
+            "name": "Ads",
+            "color": "green"
+          }
+        ]
+      }
+    },
+    "Stories Media": {
+      "type": "files",
+      "files": {}
+    },
+    "Status": {
+      "type": "status",
+      "status": {
+        "options": [
+          {
+            "name": "Idea",
+            "color": "gray"
+          },
+          {
+            "name": "Scripting",
+            "color": "blue"
+          },
+          {
+            "name": "Recording",
+            "color": "orange"
+          },
+          {
+            "name": "Editing",
+            "color": "purple"
+          },
+          {
+            "name": "To Review",
+            "color": "pink"
+          },
+          {
+            "name": "Ready",
+            "color": "yellow"
+          },
+          {
+            "name": "Posted",
+            "color": "green"
+          }
+        ],
+        "groups": [
+          {
+            "name": "To-do",
+            "options": [
+              "Idea"
+            ]
+          },
+          {
+            "name": "In progress",
+            "options": [
+              "Scripting",
+              "Recording",
+              "Editing",
+              "To Review",
+              "Ready"
+            ]
+          },
+          {
+            "name": "Complete",
+            "options": [
+              "Posted"
+            ]
+          }
+        ],
+        "note": "Status options cannot be created via the API — configure in the Notion UI"
+      }
+    },
+    "Content Goal": {
+      "type": "multi_select",
+      "multi_select": {
+        "options": [
+          {
+            "name": "Views / Virality",
+            "color": "gray"
+          },
+          {
+            "name": "Engagement (Likes & Shares)",
+            "color": "orange"
+          },
+          {
+            "name": "Profile Traffic / Followers",
+            "color": "default"
+          },
+          {
+            "name": "Retention / Watch Time",
+            "color": "pink"
+          },
+          {
+            "name": "Leads (Comment / DM)",
+            "color": "blue"
+          },
+          {
+            "name": "Community Members",
+            "color": "yellow"
+          }
+        ]
+      }
+    },
+    "Platforms": {
+      "type": "multi_select",
+      "multi_select": {
+        "options": [
+          {
+            "name": "Instagram",
+            "color": "purple"
+          },
+          {
+            "name": "Facebook",
+            "color": "blue"
+          },
+          {
+            "name": "YouTube Shorts",
+            "color": "red"
+          },
+          {
+            "name": "YouTube",
+            "color": "red"
+          },
+          {
+            "name": "TikTok",
+            "color": "default"
+          },
+          {
+            "name": "Threads",
+            "color": "gray"
+          },
+          {
+            "name": "LinkedIn",
+            "color": "blue"
+          }
+        ]
+      }
+    },
+    "Title": {
+      "type": "title",
+      "title": {}
+    }
+  }
+}

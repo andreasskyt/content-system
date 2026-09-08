@@ -1,0 +1,87 @@
+{
+  "title": "YT My Content",
+  "description": "",
+  "properties": {
+    "Thumbnail URL": {
+      "type": "url",
+      "url": {}
+    },
+    "Watch Time": {
+      "type": "number",
+      "number": {
+        "format": "number_with_commas"
+      }
+    },
+    "Post Date": {
+      "type": "date",
+      "date": {}
+    },
+    "Watch Time (formatted)": {
+      "type": "formula",
+      "formula": {
+        "expression": "format(floor(prop(\"Watch Time\")) + \":\" + format(round(( prop(\"Watch Time\") - floor(prop(\"Watch Time\")) ) * 60)).padStart(2, \"0\"))"
+      }
+    },
+    "Hook Analysis": {
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Has Transcript": {
+      "type": "checkbox",
+      "checkbox": {}
+    },
+    "Video ID": {
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Comments": {
+      "type": "number",
+      "number": {
+        "format": "number_with_commas"
+      }
+    },
+    "Views": {
+      "type": "number",
+      "number": {
+        "format": "number_with_commas"
+      }
+    },
+    "Likes": {
+      "type": "number",
+      "number": {
+        "format": "number_with_commas"
+      }
+    },
+    "Subscribers Gained": {
+      "type": "number",
+      "number": {
+        "format": "number_with_commas"
+      }
+    },
+    "Engagement Rate": {
+      "type": "formula",
+      "formula": {
+        "expression": "prop(\"Likes\")/prop(\"Views\")"
+      }
+    },
+    "URL": {
+      "type": "url",
+      "url": {}
+    },
+    "Summary": {
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Content Piece": {
+      "type": "relation",
+      "relation": {
+        "database": "[see docs/02-notion-schema.md]",
+        "type": "dual_property"
+      }
+    },
+    "Caption": {
+      "type": "title",
+      "title": {}
+    }
+  }
+}

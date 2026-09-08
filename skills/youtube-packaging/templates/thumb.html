@@ -1,0 +1,157 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  /* ============================================================
+     BRAND thumbnail engine — 1280x720 design space, rendered at 2x.
+     One template, composed from slots: background / artifact /
+     subject / headline / decor. Never edit this per video; pass
+     values through the spec instead.
+     ============================================================ */
+
+  @font-face{font-family:"Poppins";src:url("{{SKILL}}/assets/fonts/Poppins-Bold.ttf") format("truetype");font-weight:700}
+  @font-face{font-family:"Montserrat";src:url("{{SKILL}}/assets/fonts/Montserrat-Black.ttf") format("truetype");font-weight:900}
+  @font-face{font-family:"Jost";src:url("{{SKILL}}/assets/fonts/Jost-Bold.ttf") format("truetype");font-weight:700}
+
+  :root{
+    --ink:#0d1117; --muted:#8a94a3; --line:#e8ebf0;
+    --green:#1f9d63; --red:#e5484d; --amber:#f5a524; --blue:#3b82f6;
+    --brand:#303b2f; --brand-dark:#161B15; --gold:#BCAC8B; --beige:#F5F1EA;
+    --stamp-red:#c8102e;
+    --accent:{{ACCENT}};
+
+    /* distress mask used by the pressure-stamp treatment */
+    --grunge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='340' height='340'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' seed='11'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 4.2 0 0 0 -1.35'/%3E%3C/filter%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.035' numOctaves='3' seed='4'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 2.6 0 0 0 -0.75'/%3E%3C/filter%3E%3Crect width='340' height='340' filter='url(%23m)'/%3E%3Crect width='340' height='340' filter='url(%23n)' opacity='0.85'/%3E%3C/svg%3E");
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1280px;height:720px;overflow:hidden}
+  body{
+    font-family:"Poppins",system-ui,sans-serif;
+    position:relative;
+    background:#fbfbfc;
+  }
+
+  /* ---------- BACKGROUNDS ---------- */
+  .bg-dots{
+    background:#fbfbfc;
+    background-image:radial-gradient(#c9ced6 2.2px, transparent 2.3px);
+    background-size:26px 26px;
+  }
+  .bg-grid{
+    background:#fbfbfc;
+    background-image:linear-gradient(#e6e9ee 1px,transparent 1px),linear-gradient(90deg,#e6e9ee 1px,transparent 1px);
+    background-size:44px 44px;
+  }
+  .bg-paper{background:var(--beige)}
+  .bg-dark{background:radial-gradient(120% 100% at 30% 20%,#22282c 0%,#0e1113 70%)}
+  .bg-brand{background:linear-gradient(165deg,#161B15 0%,#303b2f 55%,#4C564A 100%)}
+  .bg-accent-wash{background:#fbfbfc}
+  .bg-accent-wash::after{
+    content:"";position:absolute;inset:0;z-index:0;
+    background:radial-gradient(70% 90% at 82% 50%, color-mix(in srgb, var(--accent) 26%, transparent) 0%, transparent 62%);
+  }
+
+  /* keeps the dot/grid field from fighting the subject for attention */
+  .veil{position:absolute;inset:0;z-index:1;
+    background:radial-gradient(120% 90% at 50% 45%,rgba(255,255,255,.72) 0%,rgba(255,255,255,0) 60%)}
+  .bg-dark .veil,.bg-brand .veil{background:radial-gradient(120% 90% at 50% 45%,rgba(0,0,0,.28) 0%,rgba(0,0,0,0) 62%)}
+
+  /* ---------- SUBJECT ([YOUR_NAME]) ---------- */
+  .subject{position:absolute;bottom:0;z-index:5;
+    filter:drop-shadow(0 30px 50px rgba(20,25,35,.30))}
+  .bg-dark .subject,.bg-brand .subject{filter:drop-shadow(0 24px 44px rgba(0,0,0,.55))}
+  .subject.left{left:0}
+  .subject.right{right:0}
+
+  /* ---------- ARTIFACT (the thing being shown) ---------- */
+  .artifact{position:absolute;z-index:4}
+  .artifact.right{right:34px;top:52px}
+  .artifact.left{left:34px;top:52px}
+  .artifact.center{left:50%;top:50%;transform:translate(-50%,-50%)}
+  .artifact.over-subject{z-index:6}          /* hides a hard photo crop edge */
+
+  /* mac-style window chrome for any UI artifact */
+  .win{background:#fff;border:1px solid var(--line);border-radius:22px;overflow:hidden;
+    box-shadow:0 40px 90px rgba(16,24,40,.20), 0 6px 18px rgba(16,24,40,.08)}
+  .win-bar{height:46px;display:flex;align-items:center;gap:8px;padding:0 18px;
+    border-bottom:1px solid var(--line);background:#fcfcfd}
+  .win-dot{width:11px;height:11px;border-radius:50%}
+  .win-tabs{margin-left:16px;display:flex;gap:18px;font-size:13px;color:var(--muted);font-weight:600}
+  .win-tabs .on{color:var(--ink)}
+  .win-body{padding:20px 22px}
+
+  /* ---------- HEADLINE ---------- */
+  .headline{position:absolute;z-index:8;line-height:1.0;text-align:center}
+  .headline.tl{left:44px;top:44px;text-align:left}
+  .headline.tr{right:44px;top:44px;text-align:right}
+  .headline.bl{left:44px;bottom:44px;text-align:left}
+  .headline.br{right:44px;bottom:44px;text-align:right}
+  .headline.center{left:50%;top:50%;transform:translate(-50%,-50%)}
+
+  /* solid — the default. heavy, tight, high contrast */
+  .h-solid{font-family:"Montserrat";font-weight:900;font-size:96px;letter-spacing:-2px;
+    color:var(--ink);text-transform:uppercase}
+  .bg-dark .h-solid,.bg-brand .h-solid{color:#fff}
+  .h-solid .hi{color:var(--accent)}
+
+  /* knockout — text sits on a solid accent slab */
+  .h-slab{position:relative;font-family:"Montserrat";font-weight:900;font-size:82px;letter-spacing:-1.5px;
+    text-transform:uppercase;color:#fff;background:var(--accent);
+    padding:6px 20px 12px;border-radius:6px;display:inline-block;
+    box-shadow:0 16px 34px rgba(0,0,0,.22)}
+
+  /* pressure stamp — physical rubber stamp, ink bleed + patchy coverage */
+  .h-stamp{position:relative;font-family:"Poppins";font-weight:700;font-size:62px;letter-spacing:1px;
+    color:var(--stamp-red);border:7px solid var(--stamp-red);border-radius:10px;
+    padding:20px 32px 24px;opacity:.9;mix-blend-mode:multiply;
+    filter:url(#inkbleed);
+    -webkit-mask-image:var(--grunge);-webkit-mask-size:340px 340px;-webkit-mask-position:-30px -40px}
+  .h-stamp::before{content:"";position:absolute;inset:8px;border:2.5px solid var(--stamp-red);
+    border-radius:4px;opacity:.85}
+
+  /* marker — hand-drawn highlighter behind the words */
+  .h-marker{font-family:"Montserrat";font-weight:900;font-size:88px;letter-spacing:-1.5px;
+    text-transform:uppercase;color:var(--ink);position:relative;display:inline-block;padding:0 10px}
+  .h-marker::before{content:"";position:absolute;left:0;right:0;bottom:8px;height:38%;
+    background:var(--accent);opacity:.85;z-index:-1;transform:rotate(-1deg) skewX(-8deg)}
+
+  .headline .sub{font-family:"Poppins";font-weight:700;font-size:26px;letter-spacing:.5px;
+    color:var(--muted);text-transform:uppercase;margin-top:12px;display:block}
+
+  /* ---------- DECOR ---------- */
+  .badge{position:absolute;z-index:9;display:flex;align-items:center;gap:10px;
+    background:#fff;border:1px solid #f6c6c8;border-left:5px solid var(--red);
+    border-radius:12px;padding:11px 15px;box-shadow:0 18px 40px rgba(16,24,40,.18);
+    transform:rotate(-1.6deg)}
+  .badge .t{font-size:13.5px;font-weight:800;color:#b42126;letter-spacing:-.2px}
+  .badge .s{font-size:11px;font-weight:600;color:#98a2b3;margin-top:1px}
+
+  .circle-annot{position:absolute;z-index:9;pointer-events:none}
+  .arrow-annot{position:absolute;z-index:9;pointer-events:none}
+
+  /* ---------- IMPERFECTION LAYER (kills the AI-render look) ---------- */
+  .grain{position:absolute;inset:0;z-index:20;opacity:.055;pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g)'/%3E%3C/svg%3E");
+    background-size:200px 200px}
+  .vig{position:absolute;inset:0;z-index:19;pointer-events:none;
+    box-shadow:inset 0 0 160px rgba(10,14,20,.13)}
+
+  {{EXTRA_CSS}}
+</style>
+
+<svg width="0" height="0" style="position:absolute">
+  <filter id="inkbleed">
+    <feTurbulence type="fractalNoise" baseFrequency="0.06 0.09" numOctaves="4" seed="3" result="t"/>
+    <feDisplacementMap in="SourceGraphic" in2="t" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+
+<body class="{{BG_CLASS}}">
+  <div class="veil"></div>
+  {{ARTIFACT}}
+  {{SUBJECT}}
+  {{HEADLINE}}
+  {{DECOR}}
+  <div class="vig"></div>
+  <div class="grain"></div>
+</body>

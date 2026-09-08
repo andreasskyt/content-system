@@ -1,0 +1,494 @@
+{
+  "name": "IG Comment → DM (config-driven)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ig-comment-dm",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "IG Comment In",
+      "webhookId": "ig-comment-dm"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "[NOTION_COMMENTS_CONFIG_DB_ID]",
+          "mode": "id"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        0
+      ],
+      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "name": "Get DM Config",
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const hook = $('IG Comment In').first().json;\nconst body = hook.body || hook;\nconst cd = body.customData || body.custom_data || {};\nconst ig = (((body.triggerData || {}).igCommentOnPost || {}).ig) || {};\nconst comment = String(cd.comment_text || ig.body || body.comment_text || body.comment || (body.message && body.message.body) || '').trim();\nconst contactId = body.contact_id || body.contactId || (body.contact && body.contact.id) || '';\nconst commentId = String(ig.commentId || cd.comment_id || '').trim();\nconst permalink = String(ig.permalinkUrl || cd.post_url || '').trim();\nconst postId = String(ig.postId || cd.post_id || body.post_id || '').trim();\nconst shortcode = (permalink.match(/\\/(?:p|reel)\\/([^\\/?#]+)/) || [])[1] || postId;\nconst commenter = String(body.full_name || body.first_name || '').trim();\nif (!contactId || !comment) { return []; }\n\nconst val = (x) => {\n  if (x == null) return '';\n  if (typeof x === 'string') return x;\n  if (Array.isArray(x)) return x.map(v => (v && (v.plain_text || (v.text && v.text.content))) || '').join('');\n  if (typeof x === 'object') return x.plain_text || x.content || '';\n  return String(x);\n};\nconst rows = $('Get DM Config').all().map(i => {\n  const j = i.json;\n  const p = j.properties || j;\n  return {\n    keyword: val(j.property_keyword || p.Keyword || j.name).toUpperCase().trim(),\n    dmText: val(j.property_dm_text || p['DM Text']),\n    slug: val(j.property_landing_slug || p['Landing Slug']).trim(),\n    leadMagnet: val(j.property_lead_magnet || p['Lead Magnet']),\n    replyText: val(j.property_comment_reply || p['Comment Reply']).trim(),\n    active: j.property_active === true || p.Active === true || p.Active === '__YES__'\n  };\n}).filter(r => r.active && r.keyword);\n\nconst up = comment.toUpperCase();\nconst hit = rows.find(r => new RegExp('\\\\b' + r.keyword.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + '\\\\b').test(up));\nif (!hit) { return []; }\n\nconst DEFAULT_REPLY = 'sent, you got it?';\nconst link = 'https://[WEBSITE_DOMAIN]/' + hit.slug + '?magnet=' + hit.slug + '&utm_source=instagram&utm_medium=dm&utm_content=' + encodeURIComponent(shortcode || hit.slug);\nconst dm = (hit.dmText || '').replace(/\\{\\{\\s*link\\s*\\}\\}/g, link);\nreturn [{ json: {\n  contactId, commentId, comment, commenter,\n  postRef: permalink || postId, shortcode,\n  keyword: hit.keyword, tag: 'kw-' + hit.keyword.toLowerCase(),\n  dm, leadMagnet: hit.leadMagnet, slug: hit.slug, link,\n  replyText: hit.replyText || DEFAULT_REPLY,\n  contactUrl: 'https://app.gohighlevel.com/v2/location/[GHL_LOCATION_ID]/contacts/detail/' + contactId\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "name": "Match Keyword"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://services.leadconnectorhq.com/contacts/{{ $json.contactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ customFields: [ { id: '[GHL_FIELD_DM_PAYLOAD_ID]', value: $json.dm }, { id: '[GHL_FIELD_LEAD_MAGNET_ID]', value: $json.leadMagnet }, { id: '[GHL_FIELD_SOURCE_POST_ID]', value: $json.postRef || $json.slug } ] }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "name": "Write DM Fields",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[GoHighLevel Private Integration Token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://services.leadconnectorhq.com/contacts/{{ $('Match Keyword').item.json.contactId }}/tags",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ tags: [ 'ig-lead', $('Match Keyword').item.json.tag, 'dm-ready' ] }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "id": "a1b2c3d4-0005-4000-8000-000000000005",
+      "name": "Add Tags",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[GoHighLevel Private Integration Token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "[SLACK_CHANNEL_ID]",
+          "mode": "id"
+        },
+        "text": "=:speech_balloon: *New IG comment lead*\n\n*From:* {{ $('Match Keyword').item.json.commenter || 'unknown' }}\n*Comment:* {{ $('Match Keyword').item.json.comment }}\n*Keyword:* {{ $('Match Keyword').item.json.keyword }} → {{ $('Match Keyword').item.json.leadMagnet }}\n*Post:* {{ $('Match Keyword').item.json.postRef || '—' }}\n*GHL:* <{{ $('Match Keyword').item.json.contactUrl }}|open contact>\n\nDM handed to GHL, verifying delivery in 90s…",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1100,
+        0
+      ],
+      "id": "a1b2c3d4-0006-4000-8000-000000000006",
+      "name": "Slack Notify",
+      "webhookId": "a1b2c3d4-0006-4000-8000-000000000006",
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_ME",
+          "name": "[Slack Bot]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "unit": "seconds",
+        "amount": 90
+      },
+      "name": "Wait for GHL DM",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        0
+      ],
+      "webhookId": "41aa612c-a8f1-44fb-8277-a6773a3b8a03",
+      "id": "71425e1b-ee38-4cb6-9008-61141150aef1"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://services.leadconnectorhq.com/contacts/{{ $('Match Keyword').first().json.contactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Get Contact Tags",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[GoHighLevel Private Integration Token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      },
+      "id": "4c6f0a3a-3112-4f62-98f0-33da248108c6"
+    },
+    {
+      "parameters": {
+        "jsCode": "const c = $input.first().json.contact || {};\nconst m = $('Match Keyword').first().json;\nconst tags = (c.tags || []).map(t => String(t).toLowerCase());\nreturn [{ json: { ...m, tags, dmSent: !tags.includes('dm-ready') } }];"
+      },
+      "name": "Check DM Sent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        0
+      ],
+      "id": "311d57db-d0e0-4dac-a91c-45078378e837"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "dm-sent",
+              "leftValue": "={{ $json.dmSent }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "DM Sent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        0
+      ],
+      "id": "c7c8bd70-3a38-4b0c-9941-c56f9f997802"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v24.0/{{ $json.commentId }}/replies",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ $json.replyText }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Reply to Comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        -120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Meta Graph API — System User token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "id": "ea1d85ca-b109-45e4-899b-6e523dc54f80"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "[SLACK_CHANNEL_ID]",
+          "mode": "id"
+        },
+        "text": "={{ $json.error ? ':x: DM delivered, but the public comment reply FAILED: `' + (typeof $json.error === 'string' ? $json.error : ($json.error.message || JSON.stringify($json.error))).slice(0, 300) + '`' : ':white_check_mark: DM delivered + replied to the comment: \"' + $('Check DM Sent').first().json.replyText + '\"' }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false,
+          "thread_ts": {
+            "replyValues": {
+              "thread_ts": "={{ $('Slack Notify').first().json.ts }}"
+            }
+          }
+        }
+      },
+      "name": "Slack Reply Status",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        2420,
+        -120
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_ME",
+          "name": "[Slack Bot]"
+        }
+      },
+      "id": "c8f70e43-e32d-49c4-badf-e813d0e42b57"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "[SLACK_CHANNEL_ID]",
+          "mode": "id"
+        },
+        "text": "=:rotating_light: DM NOT sent after 90s — `dm-ready` still on the contact, so GHL never sent the IG DM. No comment reply posted. Check GHL workflow \"IG Comments to DM\" → <{{ $json.contactUrl }}|open contact>",
+        "otherOptions": {
+          "includeLinkToWorkflow": false,
+          "thread_ts": {
+            "replyValues": {
+              "thread_ts": "={{ $('Slack Notify').first().json.ts }}"
+            }
+          }
+        }
+      },
+      "name": "Slack DM Failed",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        2200,
+        140
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_ME",
+          "name": "[Slack Bot]"
+        }
+      },
+      "id": "3190c03d-bd2a-4058-8cfc-a6a0644c70b4"
+    }
+  ],
+  "connections": {
+    "IG Comment In": {
+      "main": [
+        [
+          {
+            "node": "Get DM Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get DM Config": {
+      "main": [
+        [
+          {
+            "node": "Match Keyword",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Keyword": {
+      "main": [
+        [
+          {
+            "node": "Write DM Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write DM Fields": {
+      "main": [
+        [
+          {
+            "node": "Add Tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Tags": {
+      "main": [
+        [
+          {
+            "node": "Slack Notify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Notify": {
+      "main": [
+        [
+          {
+            "node": "Wait for GHL DM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for GHL DM": {
+      "main": [
+        [
+          {
+            "node": "Get Contact Tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Contact Tags": {
+      "main": [
+        [
+          {
+            "node": "Check DM Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check DM Sent": {
+      "main": [
+        [
+          {
+            "node": "DM Sent?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DM Sent?": {
+      "main": [
+        [
+          {
+            "node": "Reply to Comment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack DM Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply to Comment": {
+      "main": [
+        [
+          {
+            "node": "Slack Reply Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "pinData": {},
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

@@ -1,0 +1,108 @@
+<meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500&family=JetBrains+Mono:wght@500&family=Playfair+Display:ital,wght@1,400&display=swap">
+<style>
+  :root {
+    --background:      #0D130B;
+    --foreground:      #F7F6F3;
+    --primary:         #BBAC8B;
+    --primary-dim:     #8A7B5C;
+    --primary-fg:      #1D2319;
+    --accent-green:    #465C42;
+    --glow-orange:     28 78% 55%;
+
+    --display:  "Bricolage Grotesque", "Helvetica Neue", sans-serif;
+    --sans:     "Instrument Sans", system-ui, sans-serif;
+    --mono:     "JetBrains Mono", ui-monospace, monospace;
+    --emphasis: "Playfair Display", Georgia, serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #000; -webkit-font-smoothing: antialiased; }
+
+  .thumb {
+    position: relative;
+    width: 1080px; height: 1920px;
+    padding: 88px;
+    display: flex; flex-direction: column; justify-content: center;
+    overflow: hidden;
+    font-family: var(--sans);
+  }
+
+  /* ---------- DARK ---------- */
+  .thumb.dark {
+    background:
+      radial-gradient(980px 980px at -2% 104%, hsl(var(--glow-orange) / 0.46) 0%, hsl(var(--glow-orange) / 0.17) 40%, transparent 74%),
+      radial-gradient(980px 720px at 88% -5%, rgba(70,92,66,0.42) 0%, transparent 74%),
+      var(--background);
+    color: var(--foreground);
+  }
+  .thumb.dark .em { color: var(--primary); }
+  .thumb.dark .kicker { color: var(--primary); }
+  .thumb.dark .rule { background: rgba(228,224,213,0.14); }
+  .thumb.dark .handle { color: rgba(247,246,243,0.42); }
+
+  /* ---------- LIGHT ---------- */
+  .thumb.light {
+    background:
+      radial-gradient(940px 940px at -2% 104%, hsl(var(--glow-orange) / 0.34) 0%, hsl(var(--glow-orange) / 0.12) 42%, transparent 74%),
+      radial-gradient(940px 700px at 92% -6%, rgba(187,172,139,0.30) 0%, transparent 74%),
+      #F5F2EC;
+    color: var(--primary-fg);
+  }
+  .thumb.light .em { color: var(--primary-dim); }
+  .thumb.light .kicker { color: var(--primary-dim); }
+  .thumb.light .rule { background: rgba(29,35,25,0.14); }
+  .thumb.light .handle { color: rgba(29,35,25,0.40); }
+
+  /* film grain — site texture layer */
+  .thumb::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    mix-blend-mode: overlay; opacity: 0.05;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.42'/%3E%3C/svg%3E");
+  }
+
+  .kicker {
+    position: absolute; top: 373px; left: 88px;
+    font-family: var(--mono); font-size: 22px; font-weight: 500;
+    letter-spacing: 0.18em; text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0;
+    font-family: var(--display); font-weight: 800;
+    font-size: 126px; line-height: 0.93; letter-spacing: -0.04em;
+    position: relative; z-index: 2;
+  }
+
+  .em {
+    font-family: var(--emphasis);
+    font-style: italic; font-weight: 400;
+    font-size: 1.06em; letter-spacing: 0;
+  }
+
+  .foot { position: absolute; left: 88px; right: 88px; bottom: 373px; z-index: 2; }
+  .rule { height: 1px; width: 100%; }
+  .handle {
+    font-family: var(--mono); font-size: 21px; letter-spacing: 0.16em;
+    text-transform: lowercase; margin-top: 24px; display: block;
+  }
+</style>
+
+<div class="thumb dark" id="dark">
+  <div class="kicker">__KICKER__</div>
+  <h1>__HEADLINE__</h1>
+  <div class="foot">
+    <div class="rule"></div>
+    <span class="handle">@[IG_HANDLE]</span>
+  </div>
+</div>
+
+<div class="thumb light" id="light">
+  <div class="kicker">__KICKER__</div>
+  <h1>__HEADLINE__</h1>
+  <div class="foot">
+    <div class="rule"></div>
+    <span class="handle">@[IG_HANDLE]</span>
+  </div>
+</div>

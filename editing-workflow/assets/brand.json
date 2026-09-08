@@ -1,0 +1,13 @@
+{
+  "font": {
+    "family": "Poppins",
+    "weight": 700
+  },
+  "colors": {
+    "primary": "#303b2f",
+    "accent": "#BCAC8B",
+    "text": "#FFFFFF",
+    "background": "#FFFFFF",
+    "backgroundSecondary": "#000000"
+  }
+}

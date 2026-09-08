@@ -1,0 +1,136 @@
+#!/bin/bash
+set -euo pipefail
+
+# Resolve symlinks to find the real project root
+SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$0")"
+PROJECT_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+
+CONTENT_ROOT="[CONTENT_ROOT]"
+SHORT_DIR="$CONTENT_ROOT/Short Form"
+LONG_DIR="$CONTENT_ROOT/Long Form YouTube"
+MUSIC_DIR="$CONTENT_ROOT/Music"
+
+echo ""
+echo "  ═══════════════════════════════════════════════"
+echo "   BRAND Add Music — mix MP3 under finished video"
+echo "  ═══════════════════════════════════════════════"
+echo ""
+echo "   Pick format:"
+echo "     [1] Short Form"
+echo "     [2] Long Form"
+echo ""
+read -p "   > " fmt_choice
+
+case "$fmt_choice" in
+  1) FMT_DIR="$SHORT_DIR"; LABEL="Short Form" ;;
+  2) FMT_DIR="$LONG_DIR"; LABEL="Long Form" ;;
+  *) echo ""; echo "   Invalid choice."; exit 1 ;;
+esac
+
+if [[ ! -d "$FMT_DIR" ]]; then
+  echo ""
+  echo "   No folder at: $FMT_DIR"
+  exit 1
+fi
+
+# For each content folder, prefer subs.mp4 > b-roll.mp4 > edit.mp4
+videos=()
+labels=()
+while IFS= read -r dir; do
+  [[ -n "$dir" ]] || continue
+  if [[ -f "$dir/subs.mp4" ]]; then
+    videos+=("$dir/subs.mp4"); labels+=("$(basename "$dir")  (subs)")
+  elif [[ -f "$dir/b-roll.mp4" ]]; then
+    videos+=("$dir/b-roll.mp4"); labels+=("$(basename "$dir")  (b-roll)")
+  elif [[ -f "$dir/edit.mp4" ]]; then
+    videos+=("$dir/edit.mp4"); labels+=("$(basename "$dir")  (edit)")
+  fi
+done < <(find "$FMT_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+
+if [[ ${#videos[@]} -eq 0 ]]; then
+  echo ""
+  echo "   No finished videos (subs/b-roll/edit.mp4) found in $FMT_DIR"
+  exit 1
+fi
+
+echo ""
+echo "  ═══════════════════════════════════════════════"
+echo "   $LABEL — pick a video:"
+echo "  ═══════════════════════════════════════════════"
+echo ""
+for i in "${!videos[@]}"; do
+  echo "     [$((i+1))] 🎬 ${labels[$i]}"
+done
+echo ""
+read -p "   Pick [1-${#videos[@]}]: " v_choice
+
+if [[ -z "$v_choice" ]] || [[ "$v_choice" -lt 1 ]] || [[ "$v_choice" -gt ${#videos[@]} ]]; then
+  echo "   Invalid choice."
+  exit 1
+fi
+
+VIDEO="${videos[$((v_choice - 1))]}"
+
+# ── Music picker ─────────────────────────────────────────────
+if [[ ! -d "$MUSIC_DIR" ]]; then
+  mkdir -p "$MUSIC_DIR"
+  echo ""
+  echo "   Created $MUSIC_DIR"
+  echo "   Drop .mp3 files in there and try again."
+  exit 1
+fi
+
+mp3s=()
+while IFS= read -r f; do
+  [[ -n "$f" ]] || continue
+  mp3s+=("$f")
+done < <(find "$MUSIC_DIR" -maxdepth 1 -type f -iname "*.mp3" 2>/dev/null | sort)
+
+if [[ ${#mp3s[@]} -eq 0 ]]; then
+  echo ""
+  echo "   No .mp3 files found in $MUSIC_DIR"
+  exit 1
+fi
+
+echo ""
+echo "  ═══════════════════════════════════════════════"
+echo "   Pick music:"
+echo "  ═══════════════════════════════════════════════"
+echo ""
+for i in "${!mp3s[@]}"; do
+  echo "     [$((i+1))] 🎵 $(basename "${mp3s[$i]}")"
+done
+echo ""
+read -p "   Pick [1-${#mp3s[@]}]: " m_choice
+
+if [[ -z "$m_choice" ]] || [[ "$m_choice" -lt 1 ]] || [[ "$m_choice" -gt ${#mp3s[@]} ]]; then
+  echo "   Invalid choice."
+  exit 1
+fi
+
+MUSIC="${mp3s[$((m_choice - 1))]}"
+
+# ── Volume ─────────────────────────────────────────────
+echo ""
+read -p "   Volume [default 0.10]: " vol_input
+VOL="${vol_input:-0.10}"
+
+echo ""
+echo "  ═══════════════════════════════════════════════"
+echo "   Mixing: $(basename "$VIDEO")"
+echo "   Music : $(basename "$MUSIC")"
+echo "   Vol   : $VOL"
+echo "  ═══════════════════════════════════════════════"
+echo ""
+
+cd "$PROJECT_ROOT"
+npx tsx scripts/add-music.ts "$VIDEO" "$MUSIC" --volume "$VOL"
+
+# Reveal output in Finder
+open "$(dirname "$VIDEO")"
+
+echo ""
+echo "  ═══════════════════════════════════════════════"
+echo "   ✓ Done"
+echo "  ═══════════════════════════════════════════════"
+echo ""

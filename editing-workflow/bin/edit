@@ -1,0 +1,373 @@
+#!/bin/bash
+set -euo pipefail
+
+# Resolve symlinks to find the real project root
+SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$0")"
+PROJECT_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+CONTENT_ROOT="[CONTENT_ROOT]"
+RAW_SHORT="$CONTENT_ROOT/Raw Videos/Short Form Raw"
+RAW_LONG="$CONTENT_ROOT/Raw Videos/Long Form Raw"
+
+# shellcheck source=_lib.sh
+source "$PROJECT_ROOT/bin/_lib.sh"
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
+
+CLIP_INSTRUCTIONS=""
+BROLL_INSTRUCTIONS=""
+PICKED_VIDEO=""
+PICKED_FORMAT=""
+RESULT_LINE=""
+RESULT_FOLDER=""
+
+prompt_instructions() {
+  local mode="$1" # "clipping", "broll", or "full"
+
+  local video_name=$(basename "$PICKED_VIDEO")
+  local format_label="Short Form"
+  [[ "$PICKED_FORMAT" == "long" ]] && format_label="Long Form"
+
+  echo ""
+  echo "═══════════════════════════════════════════════"
+  echo "  Selected: $video_name ($format_label)"
+  echo "═══════════════════════════════════════════════"
+
+  if [[ "$mode" == "clipping" || "$mode" == "full" ]]; then
+    read -p "  Clipping instructions (ENTER to skip): " CLIP_INSTRUCTIONS
+  fi
+  if [[ "$mode" == "broll" || "$mode" == "full" ]]; then
+    read -p "  B-roll instructions (ENTER to skip): " BROLL_INSTRUCTIONS
+  fi
+
+  pick_style "$PROJECT_ROOT"
+}
+
+list_videos() {
+  find "$1" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.avi" -o -iname "*.mkv" -o -iname "*.webm" \) 2>/dev/null | sort
+}
+
+pick_video() {
+  local short_videos=()
+  local long_videos=()
+
+  while IFS= read -r f; do
+    [[ -n "$f" ]] && short_videos+=("$f")
+  done < <(list_videos "$RAW_SHORT")
+
+  while IFS= read -r f; do
+    [[ -n "$f" ]] && long_videos+=("$f")
+  done < <(list_videos "$RAW_LONG")
+
+  local total=$(( ${#short_videos[@]} + ${#long_videos[@]} ))
+
+  if [[ $total -eq 0 ]]; then
+    echo ""
+    echo "  No raw videos found."
+    echo "  Drop videos into:"
+    echo "    Short form: $RAW_SHORT"
+    echo "    Long form:  $RAW_LONG"
+    exit 1
+  fi
+
+  echo ""
+  echo "═══════════════════════════════════════════════"
+  echo "  RAW VIDEOS READY FOR EDITING"
+  echo "═══════════════════════════════════════════════"
+
+  local idx=1
+  local all_videos=()
+  local all_formats=()
+
+  if [[ ${#short_videos[@]} -gt 0 ]]; then
+    echo ""
+    echo "  SHORT FORM:"
+    for f in "${short_videos[@]}"; do
+      echo "    [$idx] $(basename "$f")"
+      all_videos+=("$f")
+      all_formats+=("short")
+      ((idx++))
+    done
+  fi
+
+  if [[ ${#long_videos[@]} -gt 0 ]]; then
+    echo ""
+    echo "  LONG FORM:"
+    for f in "${long_videos[@]}"; do
+      echo "    [$idx] $(basename "$f")"
+      all_videos+=("$f")
+      all_formats+=("long")
+      ((idx++))
+    done
+  fi
+
+  echo ""
+  read -p "  Pick a video [1-$total]: " choice
+
+  if [[ -z "$choice" ]] || [[ "$choice" -lt 1 ]] || [[ "$choice" -gt $total ]]; then
+    echo "  Invalid choice."
+    exit 1
+  fi
+
+  PICKED_VIDEO="${all_videos[$((choice - 1))]}"
+  PICKED_FORMAT="${all_formats[$((choice - 1))]}"
+}
+
+resolve_video() {
+  local input="$1"
+
+  # Full or relative path that exists
+  if [[ -f "$input" ]]; then
+    PICKED_VIDEO="$input"
+    if [[ "$input" == *"Raw Videos/Long Form Raw"* ]]; then
+      PICKED_FORMAT="long"
+    else
+      PICKED_FORMAT="short"
+    fi
+    return 0
+  fi
+
+  # Try as filename in raw folders
+  if [[ -f "$RAW_SHORT/$input" ]]; then
+    PICKED_VIDEO="$RAW_SHORT/$input"
+    PICKED_FORMAT="short"
+    return 0
+  fi
+
+  if [[ -f "$RAW_LONG/$input" ]]; then
+    PICKED_VIDEO="$RAW_LONG/$input"
+    PICKED_FORMAT="long"
+    return 0
+  fi
+
+  echo "  ERROR: Video not found: $input"
+  echo "    Searched in:"
+  echo "      $RAW_SHORT/"
+  echo "      $RAW_LONG/"
+  exit 1
+}
+
+pick_or_resolve() {
+  if [[ $# -eq 0 ]] || [[ -z "${1:-}" ]]; then
+    pick_video
+  else
+    resolve_video "$1"
+  fi
+}
+
+run_pipeline() {
+  local video="$1"
+  shift
+
+  RESULT_LINE=""
+  local capture_next=false
+  cd "$PROJECT_ROOT"
+  while IFS= read -r line; do
+    echo "$line"
+    if [[ "$capture_next" == true ]]; then
+      RESULT_LINE="$line"
+      capture_next=false
+    fi
+    if [[ "$line" == *"__RESULT__"* ]]; then
+      # Check if JSON is on same line after __RESULT__
+      local after="${line#*__RESULT__}"
+      after="${after# }" # trim leading space
+      if [[ -n "$after" && "$after" == "{"* ]]; then
+        RESULT_LINE="$after"
+      else
+        capture_next=true
+      fi
+    fi
+  done < <(npx tsx scripts/pipeline.ts "$video" "$@" 2>&1)
+
+  if [[ -z "$RESULT_LINE" ]]; then
+    echo "  ERROR: Pipeline did not produce a result."
+    exit 1
+  fi
+
+  RESULT_FOLDER=$(echo "$RESULT_LINE" | python3 -c "import sys,json; print(json.load(sys.stdin)['contentFolder'])")
+}
+
+run_broll() {
+  local folder="$1"
+  shift
+  cd "$PROJECT_ROOT" && npx tsx scripts/broll.ts "$folder" "$@"
+}
+
+# ── Commands ───────────────────────────────────────────────────────────────────
+
+case "${1:-}" in
+
+  # ── edit transcribe ─────────────────────────────────────────────────────────
+  transcribe)
+    shift
+    pick_or_resolve "${1:-}"
+    echo ""
+    echo "═══════════════════════════════════════════════"
+    echo "  Transcribing: $(basename "$PICKED_VIDEO")"
+    echo "═══════════════════════════════════════════════"
+    echo ""
+    cd "$PROJECT_ROOT" && npx tsx scripts/transcribe.ts "$PICKED_VIDEO"
+    ;;
+
+  # ── edit clipping ───────────────────────────────────────────────────────────
+  # Transcribe + AI segment selection + cut clips + concat preview (no b-roll)
+  clipping)
+    shift
+    pick_or_resolve "${1:-}"
+    prompt_instructions "clipping"
+    ARGS=()
+    [[ -n "$CLIP_INSTRUCTIONS" ]] && ARGS+=(--instructions "$CLIP_INSTRUCTIONS")
+    run_pipeline "$PICKED_VIDEO" "${ARGS[@]+"${ARGS[@]}"}"
+    save_style_to_folder "$RESULT_FOLDER"
+    ;;
+
+  # ── edit broll ──────────────────────────────────────────────────────────────
+  # B-roll only. Accepts a content folder or video file.
+  # If the folder already has final_transcript.json + output/preview.mp4, skips straight to b-roll.
+  # If not, transcribes first via prep-for-broll, then runs b-roll.
+  broll)
+    shift
+    INPUT="${1:-}"
+
+    if [[ -z "$INPUT" ]]; then
+      echo "  Usage: edit broll <content-folder or video>"
+      echo ""
+      echo "  Examples:"
+      echo "    edit broll \"Content/Short Form/IMG_5543\""
+      echo "    edit broll /path/to/video.mp4"
+      exit 1
+    fi
+
+    # Determine if input is a content folder (has final_transcript.json) or a video file
+    if [[ -d "$INPUT" ]]; then
+      BROLL_FOLDER="$INPUT"
+    elif [[ -f "$INPUT" ]]; then
+      # It's a video file — check if it lives inside a content folder that's already been processed
+      PARENT_DIR="$(dirname "$INPUT")"
+      if [[ -f "$PARENT_DIR/final_transcript.json" && -f "$PARENT_DIR/output/preview.mp4" ]]; then
+        BROLL_FOLDER="$PARENT_DIR"
+      elif [[ -f "$PARENT_DIR/final_transcript.json" && -f "$PARENT_DIR/output/preview.mp4" ]]; then
+        BROLL_FOLDER="$PARENT_DIR"
+      else
+        # Not in a processed folder — need to prep it
+        BROLL_FOLDER=""
+      fi
+    else
+      echo "  ERROR: Not found: $INPUT"
+      exit 1
+    fi
+
+    # Prompt for instructions + style
+    PICKED_VIDEO="$INPUT"
+    PICKED_FORMAT="short"
+    echo ""
+    read -p "  B-roll instructions (ENTER to skip): " BROLL_INSTRUCTIONS
+    pick_style "$PROJECT_ROOT"
+
+    if [[ -n "$BROLL_FOLDER" && -f "$BROLL_FOLDER/final_transcript.json" && -f "$BROLL_FOLDER/output/preview.mp4" ]]; then
+      # Already processed — skip straight to b-roll
+      echo "  Found existing transcript + preview. Skipping to b-roll..."
+    else
+      # Need to transcribe and prep
+      echo "  Preparing video for b-roll..."
+      cd "$PROJECT_ROOT"
+      PREP_RESULT=""
+      prep_capture_next=false
+      while IFS= read -r line; do
+        echo "$line"
+        if [[ "$prep_capture_next" == true ]]; then
+          PREP_RESULT="$line"
+          prep_capture_next=false
+        fi
+        if [[ "$line" == *"__RESULT__"* ]]; then
+          prep_after="${line#*__RESULT__}"
+          prep_after="${prep_after# }"
+          if [[ -n "$prep_after" && "$prep_after" == "{"* ]]; then
+            PREP_RESULT="$prep_after"
+          else
+            prep_capture_next=true
+          fi
+        fi
+      done < <(npx tsx scripts/prep-for-broll.ts "$INPUT" 2>&1)
+
+      if [[ -n "$PREP_RESULT" ]]; then
+        BROLL_FOLDER=$(echo "$PREP_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['contentFolder'])")
+      else
+        echo "  ERROR: Could not prepare video for b-roll."
+        exit 1
+      fi
+    fi
+
+    BROLL_ARGS=()
+    [[ -n "$BROLL_INSTRUCTIONS" ]] && BROLL_ARGS+=(--instructions "$BROLL_INSTRUCTIONS")
+    save_style_to_folder "$BROLL_FOLDER"
+    run_broll "$BROLL_FOLDER" "${BROLL_ARGS[@]+"${BROLL_ARGS[@]}"}"
+    ;;
+
+  # ── edit full ───────────────────────────────────────────────────────────────
+  # Full pipeline: transcribe + clip + review pause + b-roll
+  full)
+    shift
+    NO_REVIEW=false
+    VIDEO_ARG=""
+
+    for arg in "$@"; do
+      if [[ "$arg" == "--no-review" ]]; then
+        NO_REVIEW=true
+      elif [[ -z "$VIDEO_ARG" ]] && [[ "$arg" != --* ]]; then
+        VIDEO_ARG="$arg"
+      fi
+    done
+
+    pick_or_resolve "${VIDEO_ARG:-}"
+    prompt_instructions "full"
+
+    # Run clipping pipeline
+    CLIP_ARGS=()
+    [[ -n "$CLIP_INSTRUCTIONS" ]] && CLIP_ARGS+=(--instructions "$CLIP_INSTRUCTIONS")
+    run_pipeline "$PICKED_VIDEO" "${CLIP_ARGS[@]+"${CLIP_ARGS[@]}"}"
+    save_style_to_folder "$RESULT_FOLDER"
+
+    # Review gate
+    if [[ "$NO_REVIEW" == true ]]; then
+      echo ""
+      echo "  Skipping review, running b-roll..."
+    else
+      echo ""
+      echo "═══════════════════════════════════════════════"
+      echo "  REVIEW: Open the edit video and check it"
+      echo "  $RESULT_FOLDER"
+      echo "═══════════════════════════════════════════════"
+      echo ""
+      read -p "  Press ENTER for b-roll (Ctrl+C to abort)... "
+    fi
+
+    # Run b-roll
+    BROLL_ARGS=()
+    [[ -n "$BROLL_INSTRUCTIONS" ]] && BROLL_ARGS+=(--instructions "$BROLL_INSTRUCTIONS")
+    run_broll "$RESULT_FOLDER" "${BROLL_ARGS[@]+"${BROLL_ARGS[@]}"}"
+    ;;
+
+  # ── help ────────────────────────────────────────────────────────────────────
+  *)
+    echo ""
+    echo "  BRAND Video Editor"
+    echo ""
+    echo "  Commands:"
+    echo "    edit transcribe [video]           Transcribe only"
+    echo "    edit clipping [video]             Transcribe + clip (no b-roll)"
+    echo "    edit full [video]                 Transcribe + clip + review + b-roll"
+    echo "    edit full [video] --no-review     Full pipeline without review pause"
+    echo "    edit broll [video]                B-roll only (video already clipped)"
+    echo ""
+    echo "  Video can be:"
+    echo "    - A filename from the Raw Videos folders"
+    echo "    - A full path to any video file"
+    echo "    - Omitted — shows a menu to pick from"
+    echo ""
+    echo "  Raw video folders:"
+    echo "    Short: $RAW_SHORT"
+    echo "    Long:  $RAW_LONG"
+    echo ""
+    ;;
+esac

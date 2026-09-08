@@ -1,0 +1,48 @@
+/* Native IG story text replication — 540x960 design frame, rendered @2x = 1080x1920 */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 540px; height: 960px; overflow: hidden; }
+.frame { position: relative; width: 540px; height: 960px; background: #000; }
+.frame img.bg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover;
+}
+
+/* IG "Classic" font ≈ Proxima Nova — Helvetica Neue is the closest system match */
+.classic {
+  font-family: 'Helvetica Neue', -apple-system, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.1px;
+}
+/* IG "Editor"/serif style ≈ Georgia-like bookish serif */
+.serif {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+}
+
+/* Text block wrapper — position with inline style (top/left/right + rotate) */
+.block { position: absolute; line-height: 1.45; text-align: center; }
+.block.left { text-align: left; }
+.block.right { text-align: right; }
+
+/* IG per-line background pill: rounded rect hugging each line */
+.pill {
+  display: inline;
+  padding: 5px 9px;
+  border-radius: 6px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.pill-white { background: #fff; color: #111; }
+.pill-black { background: rgba(10,10,10,0.96); color: #fff; }
+.pill-gold  { background: #BCAC8B; color: #161B15; }
+.pill-green { background: #303b2f; color: #F5F1EA; }
+.pill-beige { background: #F5F1EA; color: #303b2f; }
+
+/* Plain white IG text (no pill) — subtle shadow like the app renders */
+.plain {
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.55);
+}
+
+/* hand-drawn scribble underline (IG drawing tool) */
+svg.scribble { position: absolute; overflow: visible; }

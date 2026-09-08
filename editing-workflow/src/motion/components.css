@@ -1,0 +1,210 @@
+/* BRAND motion-graphics component library — the visual vocabulary.
+   Parameterized blocks; content is injected per video. Not topic-specific. */
+@font-face{font-family:'Jost';
+  src:url('file://[EDITING_WORKFLOW_ROOT]/assets/fonts/Jost-Bold.ttf');
+  font-weight:700}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{font-family:var(--font);font-weight:700}
+.stage{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:28px;width:100%;min-height:100%;padding:46px 40px}
+.stage.light{background:var(--bg-light)}
+.stage.dark{background:radial-gradient(130% 120% at 50% 30%, #11160f 0%, #060806 75%)}
+.stage.clear{background:transparent}
+.stage.hub-stage{justify-content:flex-start;padding-top:54px}  /* header at top; hub fills & centers */
+.stage.hub-stage .header{position:relative;z-index:5}
+
+/* ---- two-tone header (first chunk green, rest white w/ soft shadow) ---- */
+/* headlines on graphics are ALWAYS UPPERCASE so they're never confused with subtitles */
+.header{font-size:74px;font-weight:700;letter-spacing:-0.5px;line-height:1;text-align:center;text-transform:uppercase}
+.header .g{color:var(--green)}
+.header .w{color:var(--white)}
+/* CONTRAST RULE: never white-on-white. On a light bg the "white" header word goes dark. */
+.stage.light .header .w{color:var(--ink)}
+.stage.dark .header .w{color:var(--white)}
+.stage.dark .header .g{color:var(--glow-bright);text-shadow:0 0 22px rgba(46,200,110,.5)}
+
+/* ---- glass dark panel (the base surface for most dashboards) ---- */
+.panel{position:relative;border-radius:var(--r-panel);background:var(--panel-grad);
+  border:1px solid var(--panel-line);box-shadow:var(--shadow-panel);overflow:hidden}
+.panel .topbar{position:absolute;top:0;left:0;right:0;height:52px;display:flex;
+  align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid rgba(255,255,255,.05)}
+.panel .topbar .title{font-size:16px;color:#aebfb4;margin-right:auto}
+.pill{display:flex;align-items:center;gap:7px;font-size:14px;color:#9fb3a6;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
+  border-radius:9px;padding:7px 12px}
+.iconbtn{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;color:#7d8f83}
+.iconbtn svg{width:16px;height:16px}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--glow);box-shadow:0 0 6px var(--glow)}
+
+/* ---- icon tile (the atomic glowing node) ---- */
+.tile{width:64px;height:64px;border-radius:var(--r-tile);background:var(--tile-grad);
+  border:1px solid rgba(74,210,130,.45);box-shadow:var(--glow-tile);
+  display:flex;align-items:center;justify-content:center;color:var(--glow-bright);flex:0 0 auto}
+.tile.hot{box-shadow:var(--glow-strong);border-color:var(--glow)}
+.tile svg{width:28px;height:28px;stroke:var(--glow-bright);stroke-width:2;fill:none;
+  stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 4px rgba(80,240,150,.7))}
+
+/* ---- node-flow: N steps with connectors (any process) ---- */
+.flow{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:0 38px}
+.node{position:relative;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.node .lbl{position:absolute;top:78px;left:50%;transform:translateX(-50%);width:112px;
+  font-size:13px;line-height:1.25;color:var(--text-dim);text-align:center;letter-spacing:.2px}
+.conn{flex:0 0 auto;width:42px;height:2px;position:relative;margin:0 7px}
+.conn::before{content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(90deg,rgba(120,220,160,.55) 0 5px,transparent 5px 11px)}
+.conn::after{content:'';position:absolute;right:-2px;top:-3px;width:7px;height:7px;
+  border-top:2px solid rgba(120,220,160,.7);border-right:2px solid rgba(120,220,160,.7);transform:rotate(45deg)}
+
+/* ---- kpi-row: glowing metric chips (any numbers) ---- */
+.kpis{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+.kpi{min-width:210px;border-radius:14px;padding:18px 20px;background:rgba(255,255,255,.03);
+  border:1px solid rgba(120,200,150,.18);box-shadow:var(--shadow-chip);position:relative;overflow:hidden}
+.kpi::after{content:'';position:absolute;left:0;top:0;width:3px;height:100%;background:var(--glow);box-shadow:0 0 12px var(--glow)}
+.kpi .ico{width:30px;height:30px;border-radius:8px;background:rgba(46,200,110,.12);
+  display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.kpi .ico svg{width:17px;height:17px;stroke:var(--glow-bright);stroke-width:2;fill:none}
+.kpi .v{font-size:38px;color:var(--white);line-height:1}
+.kpi .l{font-size:14px;color:var(--text-faint);margin-top:4px}
+
+/* ---- chart: SVG area / bar (any data series) ---- */
+.chart{position:relative}
+.chart .ctitle{font-size:15px;color:#aebfb4;margin-bottom:8px}
+.chart .cval{font-size:34px;color:var(--white);margin-bottom:12px}
+.chart svg{display:block;width:100%;height:auto}
+
+/* ---- checklist / grid (any list) ---- */
+.checklist{display:flex;flex-direction:column;gap:14px}
+.checklist .row{display:flex;align-items:center;gap:14px;font-size:32px;font-weight:700;color:var(--white)}
+.stage.light .checklist .row{color:var(--ink)}   /* never white-on-white */
+.checklist .row .mk{width:38px;height:38px;border-radius:11px;flex:0 0 auto;
+  background:var(--tile-grad);border:1px solid rgba(74,210,130,.45);box-shadow:var(--glow-tile);
+  display:flex;align-items:center;justify-content:center}
+.checklist .row .mk svg{width:20px;height:20px;stroke:var(--glow-bright);stroke-width:2.4;fill:none}
+
+/* ---- kinetic statement: big punchy two-tone text (any claim) ---- */
+.kinetic{display:flex;flex-direction:column;gap:6px;text-align:center}
+.kinetic .line{font-size:88px;line-height:1.02;letter-spacing:-1.5px}
+.kinetic .line .g{color:var(--green)}
+.kinetic .line .w{color:var(--white)}
+.stage.dark .kinetic .line .g{color:var(--glow);text-shadow:0 0 26px rgba(46,200,110,.45)}
+.stage.light .kinetic .line .w{color:var(--green-dark)} /* never white-on-white */
+
+/* ---- icon-grid: a cluster of icon tiles (e.g. "too many tools") ---- */
+.icongrid{display:flex;flex-wrap:wrap;gap:22px;justify-content:center;align-content:center;max-width:880px}
+.icongrid .tile{width:94px;height:94px}
+.icongrid .tile svg{width:42px;height:42px}
+
+/* ---- form-card: Airtable-style record form ---- */
+.formcard{width:60%;background:#fff;border-radius:20px;box-shadow:0 34px 80px rgba(0,0,0,.20);
+  overflow:hidden;border:1px solid #ECEFF1}
+.formcard .fhead{padding:22px 30px;border-bottom:1px solid #EEF1F4;display:flex;align-items:center;
+  gap:14px;font-size:32px;font-weight:700;color:#19281C}
+.formcard .fhead .dot{width:40px;height:40px;border-radius:11px;background:var(--tile-grad);
+  border:1px solid rgba(74,210,130,.45);box-shadow:var(--glow-tile);display:flex;align-items:center;justify-content:center}
+.formcard .fhead .dot svg{width:22px;height:22px;stroke:var(--glow-bright);stroke-width:2;fill:none}
+.formcard .frow{display:flex;align-items:center;padding:19px 30px;border-bottom:1px solid #F2F4F6;gap:20px}
+.formcard .frow:last-child{border-bottom:none}
+.formcard .frow .flabel{width:40%;font-size:22px;color:#6B7280;display:flex;align-items:center;gap:11px}
+.formcard .frow .flabel svg{width:20px;height:20px;stroke:#9aa3ad;stroke-width:2;fill:none}
+.formcard .frow .fval{flex:1;font-size:25px;color:#111827;font-weight:700}
+.formcard .frow .ftag{font-size:19px;padding:6px 16px;border-radius:20px;background:#E8F2EC;color:#1f3d29;font-weight:700}
+
+/* ---- dark form variant (Notion/Airtable-dark) ---- */
+.formcard.dark{background:radial-gradient(120% 120% at 50% 0%,#141a13,#0b110c);border:1px solid rgba(120,200,150,.16);box-shadow:0 40px 100px rgba(0,0,0,.6)}
+.formcard.dark .fhead{border-bottom:1px solid rgba(255,255,255,.07);color:#e2f1e8}
+.formcard.dark .frow{border-bottom:1px solid rgba(255,255,255,.05)}
+.formcard.dark .frow .flabel{color:#8fa498}
+.formcard.dark .frow .flabel svg{stroke:#6f8a7c}
+.formcard.dark .frow .fval{color:#ffffff}
+.formcard.dark .frow .ftag{background:rgba(46,200,110,.16);color:#7bf0ad}
+
+/* ---- activity feed: live stream of records (distinct from dashboards) ---- */
+.feed{width:60%;background:var(--panel-grad);border-radius:20px;border:1px solid var(--panel-line);box-shadow:var(--shadow-panel);overflow:hidden}
+.feed .ftop{height:58px;display:flex;align-items:center;gap:10px;padding:0 24px;border-bottom:1px solid rgba(255,255,255,.06)}
+.feed .ftop .ft{font-size:20px;color:#d3ded6;margin-right:auto;font-weight:700}
+.feed .fitem{display:flex;align-items:center;gap:18px;padding:20px 24px;border-bottom:1px solid rgba(255,255,255,.05)}
+.feed .fitem:last-child{border-bottom:none}
+.feed .fitem .av{width:52px;height:52px;border-radius:15px;background:var(--tile-grad);border:1px solid rgba(74,210,130,.4);box-shadow:var(--glow-tile);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.feed .fitem .av svg{width:26px;height:26px;stroke:var(--glow-bright);stroke-width:2;fill:none}
+.feed .fitem .txt{flex:1;font-size:23px;color:#e9f1ec;font-weight:600}
+.feed .fitem .txt b{color:#7bf0ad;font-weight:700}
+.feed .fitem .tm{font-size:16px;color:var(--text-faint);white-space:nowrap}
+
+/* ---- dashboard: full multi-element SaaS dashboard ---- */
+.dashfull{width:86%;background:var(--panel-grad);border-radius:22px;box-shadow:var(--shadow-panel);
+  border:1px solid var(--panel-line);overflow:hidden}
+.dashfull .dtop{height:56px;display:flex;align-items:center;gap:10px;padding:0 24px;border-bottom:1px solid rgba(255,255,255,.06)}
+.dashfull .dtop .dtitle{font-size:19px;color:#cdd8d0;margin-right:auto;font-weight:700}
+.dashfull .dbody{padding:24px;display:flex;flex-direction:column;gap:18px}
+.dashfull .dkpis{display:flex;gap:16px}
+.dashfull .dk{flex:1;background:rgba(255,255,255,.03);border:1px solid rgba(120,200,150,.16);
+  border-radius:13px;padding:16px 18px;position:relative;overflow:hidden}
+.dashfull .dk::after{content:'';position:absolute;left:0;top:0;width:3px;height:100%;background:var(--glow);box-shadow:0 0 10px var(--glow)}
+.dashfull .dk .v{font-size:34px;color:#fff;font-weight:700;line-height:1}
+.dashfull .dk .l{font-size:14px;color:var(--text-faint);margin-top:4px}
+.dashfull .drow2{display:flex;gap:16px}
+.dashfull .dchart{flex:2;background:rgba(255,255,255,.02);border-radius:13px;padding:16px 18px;border:1px solid rgba(255,255,255,.05)}
+.dashfull .dchart .ct{font-size:15px;color:#aebfb4;margin-bottom:8px}
+.dashfull .dbars{flex:1;background:rgba(255,255,255,.02);border-radius:13px;padding:16px 18px;border:1px solid rgba(255,255,255,.05);
+  display:flex;align-items:flex-end;gap:12px;min-height:150px}
+.dashfull .dbars .bar{flex:1;background:linear-gradient(180deg,#4ae08a,rgba(46,200,110,.25));border-radius:6px 6px 0 0}
+.dashfull .dbarsx{flex:1;background:rgba(255,255,255,.02);border-radius:13px;padding:14px 18px 10px;
+  border:1px solid rgba(255,255,255,.05);display:flex;flex-direction:column;min-height:170px}
+.dashfull .dbarsx .bt{font-size:14px;color:#aebfb4;margin-bottom:10px}
+.dashfull .dbarsx .bw{flex:1;display:flex;align-items:flex-end;gap:14px}
+.dashfull .dbarsx .bc{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;gap:6px}
+.dashfull .dbarsx .bc .bar{width:100%;background:linear-gradient(180deg,#4ae08a,rgba(46,200,110,.25));border-radius:6px 6px 0 0}
+.dashfull .dbarsx .bc .bl{font-size:13px;color:var(--text-faint);white-space:nowrap;font-weight:700}
+/* light-theme dashboard variant (white panel on dark stage — distinct look) */
+.dashfull.light{background:#ffffff;border:1px solid #E5E8EB;box-shadow:0 40px 100px rgba(0,0,0,.5)}
+.dashfull.light .dtop{border-bottom:1px solid #EEF1F4}
+.dashfull.light .dtop .dtitle{color:#19281C}
+.dashfull.light .pill{background:#F0F4F1;border-color:#dfe7e1;color:#1f3d29}
+.dashfull.light .dk{background:#F6F9F7;border:1px solid #E5EAE6}
+.dashfull.light .dk .v{color:#111827}
+.dashfull.light .dk .l{color:#6B7280}
+.dashfull.light .dk::after{background:#1f3d29;box-shadow:0 0 8px rgba(31,61,41,.4)}
+.dashfull.light .dchart,.dashfull.light .dbarsx{background:#F6F9F7;border:1px solid #E5EAE6}
+.dashfull.light .dchart .ct,.dashfull.light .dbarsx .bt{color:#6B7280}
+.dashfull.light .dbarsx .bc .bl{color:#9aa3ad}
+
+/* ---- duplicate sheets being crossed out (the chaos we replace) ---- */
+.sheets{position:relative;width:1080px;height:640px}
+.sheet{position:absolute;width:430px;background:#fff;border-radius:12px;box-shadow:0 22px 55px rgba(0,0,0,.45);overflow:hidden;border:1px solid #E5E8EB}
+.sheet .sh{background:#F3F5F7;padding:12px 16px;font-size:21px;font-weight:700;color:#19281C;border-bottom:1px solid #E5E8EB;display:flex;align-items:center;gap:9px}
+.sheet .sh svg{width:20px;height:20px;stroke:#4ca06a;stroke-width:2;fill:none}
+.sheet .sgrid{display:grid;grid-template-columns:repeat(4,1fr)}
+.sheet .sgrid .cell{height:25px;border-right:1px solid #EEF1F4;border-bottom:1px solid #EEF1F4}
+.sheet .sgrid .cell.h{background:#FAFBFC}
+.sheets .xmark{position:absolute;inset:0;z-index:20;pointer-events:none}
+.sheets .xmark svg{width:100%;height:100%;overflow:visible}
+.sheets .xmark path{stroke:#ff4242;stroke-width:20;stroke-linecap:round;fill:none;filter:drop-shadow(0 0 14px rgba(255,66,66,.7))}
+
+/* ---- Slack-style thread (someone asking for a link) ---- */
+.slack{width:66%;background:#fff;border-radius:16px;box-shadow:0 32px 80px rgba(0,0,0,.45);overflow:hidden;border:1px solid #E5E8EB}
+.slack .stop{background:#3F0E40;padding:15px 22px;color:#fff;font-size:21px;font-weight:700;display:flex;align-items:center;gap:10px}
+.slack .stop svg{width:20px;height:20px;stroke:#fff;stroke-width:2.4;fill:none}
+.slack .schan{padding:11px 22px;font-size:17px;color:#616061;border-bottom:1px solid #EEE;font-weight:700}
+.slack .smsg{display:flex;gap:14px;padding:15px 22px}
+.slack .smsg .av{width:46px;height:46px;border-radius:10px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:20px}
+.slack .smsg .mb .nm{font-size:19px;font-weight:800;color:#1D1C1D}
+.slack .smsg .mb .nm .tm{font-size:14px;color:#9a9a9a;font-weight:400;margin-left:9px}
+.slack .smsg .mb .tx{font-size:22px;color:#1D1C1D;margin-top:3px;line-height:1.35}
+
+/* ---- hub: central node (database) with agency systems orbiting around it (no lines) ---- */
+.hubwrap{position:absolute;inset:0}
+.hub-pos{position:absolute;transform:translate(-50%,-50%)}     /* static positioning */
+.hub-center{width:240px;height:240px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#1c3325,#0a130d);
+  border:2px solid rgba(74,210,130,.6);box-shadow:0 0 70px rgba(46,200,110,.6),inset 0 0 34px rgba(46,200,110,.18);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--glow-bright)}
+.hub-center svg{width:80px;height:80px;stroke:var(--glow-bright);stroke-width:1.7;fill:none;filter:drop-shadow(0 0 9px rgba(80,240,150,.8))}
+.hub-center .ct{font-size:20px;color:#e2f1e8;margin-top:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px}
+.hub-sat{width:160px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.hub-sat .st{width:88px;height:88px;border-radius:23px;background:var(--tile-grad);
+  border:1px solid rgba(74,210,130,.4);box-shadow:var(--glow-tile);display:flex;align-items:center;justify-content:center}
+.hub-sat .st svg{width:40px;height:40px;stroke:var(--glow-bright);stroke-width:2;fill:none;filter:drop-shadow(0 0 4px rgba(80,240,150,.6))}
+.hub-sat .sl{font-size:19px;color:#d3ded6;font-weight:700;text-align:center}
+
+/* ---- image-frame: rounded media container (footage/screenshots) ---- */
+.frame{border-radius:22px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.4);border:0}

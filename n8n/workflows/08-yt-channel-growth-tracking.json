@@ -1,0 +1,308 @@
+{
+  "name": "YT Channel Growth Tracking",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 17
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "82ad27da-4fa7-4080-a423-db594dd9db46",
+      "name": "Schedule Trigger",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/channels",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "statistics"
+            },
+            {
+              "name": "id",
+              "value": "[YT_CHANNEL_ID]"
+            },
+            {
+              "name": "fields",
+              "value": "items(id,statistics(subscriberCount,viewCount,videoCount))"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "2f37b1ad-4bf3-413b-95b4-d16a6bc1ab71",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "REPLACE_ME",
+          "name": "[YouTube Data API key (query auth)]"
+        },
+        "httpBearerAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Bearer Auth]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "[AIRTABLE_BASE_ID]",
+          "mode": "list",
+          "cachedResultName": "Content Library",
+          "cachedResultUrl": "https://airtable.com/[AIRTABLE_BASE_ID]"
+        },
+        "table": {
+          "__rl": true,
+          "value": "[AIRTABLE_TABLE_ID]",
+          "mode": "list",
+          "cachedResultName": "Daily Tracking",
+          "cachedResultUrl": "https://airtable.com/[AIRTABLE_BASE_ID]/[AIRTABLE_TABLE_ID]"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{$today.format(\"YYYY-DD-MM\")}}",
+            "viewCount": "={{ $('HTTP Request').item.json.items[0].statistics.viewCount }}",
+            "subscriberCount": "={{ $('HTTP Request').item.json.items[0].statistics.subscriberCount }}",
+            "Views Increase": "={{ $json.increaseViews }}",
+            "Subscriber Increase": "={{ $json.increaseSubs }}",
+            "videoCount": "={{ $('HTTP Request').item.json.items[0].statistics.videoCount }}",
+            "Channel ID": "={{ $('HTTP Request').item.json.items[0].id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "subscriberCount",
+              "displayName": "subscriberCount",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Subscriber Increase",
+              "displayName": "Subscriber Increase",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "viewCount",
+              "displayName": "viewCount",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Views Increase",
+              "displayName": "Views Increase",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "videoCount",
+              "displayName": "videoCount",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Channel ID",
+              "displayName": "Channel ID",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        864,
+        0
+      ],
+      "id": "7171a17f-e23c-4ddc-bbac-606334747e12",
+      "name": "Create Record",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "REPLACE_ME",
+          "name": "[Airtable PAT]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const previousViews = $('Get Yesterdays Performance').first().json.viewCount;\nconst todayViews     = $input.first().json.items[0].statistics.viewCount;\nconst previousSubs  = $('Get Yesterdays Performance').first().json.subscriberCount;\nconst todaySubs      = $input.first().json.items[0].statistics.subscriberCount;\n\nreturn {\n  json: {\n    increaseViews: todayViews - previousViews,\n    increaseSubs:  todaySubs  - previousSubs,\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ],
+      "id": "5da8df14-16eb-48e5-b901-e172b85cb210",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "[AIRTABLE_BASE_ID]",
+          "mode": "list",
+          "cachedResultName": "Content Library",
+          "cachedResultUrl": "https://airtable.com/[AIRTABLE_BASE_ID]"
+        },
+        "table": {
+          "__rl": true,
+          "value": "[AIRTABLE_TABLE_ID]",
+          "mode": "list",
+          "cachedResultName": "Daily Tracking",
+          "cachedResultUrl": "https://airtable.com/[AIRTABLE_BASE_ID]/[AIRTABLE_TABLE_ID]"
+        },
+        "returnAll": false,
+        "limit": 1,
+        "options": {},
+        "sort": {
+          "property": [
+            {
+              "field": "Date",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "5dacc269-d068-456d-a084-4fed510aa8c5",
+      "name": "Get Yesterdays Performance",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "REPLACE_ME",
+          "name": "[Airtable PAT]"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Yesterdays Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Create Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Yesterdays Performance": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Oslo"
+  },
+  "pinData": {},
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

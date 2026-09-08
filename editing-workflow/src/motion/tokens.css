@@ -1,0 +1,35 @@
+/* BRAND motion-graphics design tokens — single source of brand truth.
+   Every component reads these, so any topic comes out unmistakably BRAND. */
+:root{
+  /* palette */
+  --green-dark:#19281C;     /* brand dark green (headers on light bg) */
+  --green:#1f3d29;          /* slightly brighter forest green */
+  --glow:#2ec86e;           /* neon green — glows, accents, active state */
+  --glow-bright:#7bf0ad;    /* icon stroke / highlight */
+  --mint:#E8F2EC;           /* light mint accent */
+  --white:#ffffff;
+  --ink:#070907;            /* panel core */
+  --ink-2:#10140f;          /* panel edge */
+  --panel-line:rgba(120,180,140,.10);
+  --text-dim:#c4d2c9;       /* labels on dark */
+  --text-faint:#8aa093;
+
+  /* surfaces */
+  --bg-light:#fbfbfa;
+  --panel-grad:radial-gradient(120% 120% at 50% 0%, var(--ink-2) 0%, var(--ink) 70%);
+  --tile-grad:linear-gradient(160deg,#1a2a1f,#0e1611);
+
+  /* shape */
+  --r-panel:26px;
+  --r-tile:17px;
+  --r-chip:13px;
+
+  /* light & shadow */
+  --glow-tile:0 0 22px rgba(46,200,110,.35), 0 0 4px rgba(46,200,110,.5), inset 0 1px 0 rgba(255,255,255,.06);
+  --glow-strong:0 0 34px rgba(46,200,110,.6), 0 0 8px rgba(46,200,110,.7);
+  --shadow-panel:0 40px 80px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.04);
+  --shadow-chip:0 10px 30px rgba(0,0,0,.45);
+
+  /* type */
+  --font:'Jost', -apple-system, Arial, sans-serif;
+}

@@ -1,0 +1,1320 @@
+{
+  "name": "Instagram Research Agent v4",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Short Form Analyst AI Agent - Competitor Reels",
+        "height": 260,
+        "width": 2300,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1008,
+        256
+      ],
+      "id": "351c3268-e27a-414f-8f18-61067ac45330",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "maxItems": 15
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        320,
+        80
+      ],
+      "id": "fd6da9d6-8569-404b-8002-3fd04aa02121",
+      "name": "Limit Top "
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtHour": 3
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1168,
+        80
+      ],
+      "id": "9a115af0-9868-4c74-b795-43bebb2f1680",
+      "name": "Sunday @ 3am1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -448,
+        336
+      ],
+      "id": "f2b70fa5-8a8c-4f1f-9517-6ce6945bcd8e",
+      "name": "Loop1"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.notion.com/v1/blocks/{{ $json.id }}/children",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Notion Block1').first().json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -112,
+        608
+      ],
+      "id": "9e907265-2855-448e-b63d-9c9743b8bf50",
+      "name": "Append Blocks1",
+      "retryOnFail": true,
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "[NOTION_IG_RESEARCH_REPORTS_DB_ID]",
+          "mode": "list",
+          "cachedResultName": "IG Research Reports",
+          "cachedResultUrl": "https://www.notion.so/[NOTION_IG_RESEARCH_REPORTS_DB_ID]"
+        },
+        "title": "={{ $now.format('MM/dd/yyyy') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -288,
+        608
+      ],
+      "id": "1a06b385-1795-46fa-b229-40b4291952cc",
+      "name": "Create Page1",
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# MY REELS:\n{{ $json.my_reels_data }}\n\n# COMPETITOR REELS:\n{{ $json.competitor_reels_data }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=You're a content strategist analyzing competitor performance and translating insights into an Instagram research report for @{{ $('SET IG User').first().json.your_username }}.\n\n**CONTEXT:**\n- MY REELS: @{{ $('SET IG User').first().json.your_username }}'s top performing content.\n- COMPETITOR REELS: Top performing content from competitors and the broader space.\n\n**TASK:** Analyze all of the data and create a strategic report in JSON format.\n\n**CONTENT REQUIREMENTS:**\n- Top videos ranked by view count (5 total): Focus on psychological triggers and execution, not just surface-level description\n- Patterns (3 patterns): Must be directly replicable for @{{ $('SET IG User').first().json.your_username }}'s niche\n- Hooks (10 total): Must combine (1) proven frameworks and patterns from competitors, (2) specific context from MY REELS, (3) @{{ $('SET IG User').first().json.your_username }}'s voice\n- Key Takeaway: Must include concrete next steps, not just philosophy\n\n**ANALYSIS DEPTH:**\nBe conversational but precise in all text fields. Focus on strategic insights with specific examples. Each explanation should be substantive and actionable.\n\n**OUTPUT STRUCTURE (JSON):**\n\n{\n  \"top_competitor_videos\": [\n    {\n      \"rank\": 1,\n      \"hook\": \"Hook text here\",\n      \"url\": \"https://...\",\n      \"views\": 000000,\n      \"posted_date\": \"YYYY-MM-DD\",\n      \"creator\": \"@username\",\n      \"why_it_worked\": \"Explanation here\"\n    }\n  ],\n  \"winning_patterns\": [\n    {\n      \"pattern_name\": \"Pattern Name\",\n      \"explanation\": \"Full explanation\"\n    }\n  ],\n  \"hook_ideas\": [\n    {\n      \"hook\": \"Hook text exactly as spoken\",\n      \"why_it_works\": \"Explanation here\"\n    }\n  ],\n  \"key_takeaway\": \"Single paragraph summarizing the most important insights and actionable next steps\"\n}\n\nOutput valid JSON only. No markdown, no code blocks, just the raw JSON object."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        -752,
+        608
+      ],
+      "id": "05f2bd8b-eec4-45f4-ae92-5122ad4bbbcd",
+      "name": "Content Strategist1",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "content": "## IG Research Agent v1\n\n_Author: **[[YOUR_NAME]](https://www.instagram.com/[IG_HANDLE]/)**_\n\nThis agent researches and scrapes viral posts of all the competitors you have checked in your list. It then puts all the data in your notion database, and then goes over all the data and delivers a comprehensive final report.\n\n### Setup Guide:\n1. Duplicate the **[Notion Template](https://[REMOVED_LINK]6f?source=copy_link)**\n2. Set up **[Notion Credentials](https://www.notion.so/profile/integrations)** \n2. Set up **[Apify Credentials](https://console.apify.com/settings/integrations)**\n3. Set up **[Gemini Credentials](https://aistudio.google.com/api-keys)**\n4. Set up **[OpenRouter Credentials](https://openrouter.ai/settings/keys)**\n\n### Cost Breakdown:\nApify Cost: **~$0.25/run** (95 reels)\nGemini Cost: **~$0.29/run** (30 transcribes)\nOpenRouter Cost: **~$0.12/run** (final report)\n\nTotal: **~$0.70/run**\n\n### Additional Subscriptions:\nn8n: **$24/mo**\nNotion: **$10/mo**",
+        "height": 576,
+        "width": 512,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        64,
+        544
+      ],
+      "id": "dbc4f8b3-5e23-42fc-82ec-fd211b3304af",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "## Short Form Analyst AI Agent - My Reels",
+        "height": 260,
+        "width": 2300,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1008,
+        -16
+      ],
+      "id": "113a8a5d-354c-4576-8374-fe8fa2eb828b",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "model": "anthropic/claude-sonnet-4.5",
+        "options": {
+          "responseFormat": "json_object"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -848,
+        752
+      ],
+      "id": "65485a21-c911-4374-a37e-1f2de00fec99",
+      "name": "4.5-sonnet1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "REPLACE_ME",
+          "name": "[OpenRouter]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "[NOTION_IG_MY_REELS_DB_ID]",
+          "mode": "list",
+          "cachedResultName": "IG My Reels",
+          "cachedResultUrl": "https://www.notion.so/[NOTION_IG_MY_REELS_DB_ID]"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -912,
+        80
+      ],
+      "id": "4eedcade-67a5-459b-bbb9-c336a5ee4c88",
+      "name": "Get My Reels1",
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "archive",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        }
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -688,
+        80
+      ],
+      "id": "e4f8f607-c2d0-4e44-9b11-b63eaab1f7d6",
+      "name": "Clear Pages2",
+      "retryOnFail": true,
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "sortFieldsUi": {
+          "sortField": [
+            {
+              "fieldName": "videoPlayCount",
+              "order": "descending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.sort",
+      "typeVersion": 1,
+      "position": [
+        128,
+        80
+      ],
+      "id": "884b983e-8319-4045-b783-119e97bad2af",
+      "name": "Sort By Views2"
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "text": "=You are a Video Script Breakdown Agent.  \nYour task: Transcribe the raw video into a clean script.  \n\n### OUTPUT FORMAT RULES  \n- Include any notable visual elements.\n- Maximum length: **2000 characters**. \n- No timestamps, no conversational commentary. Output only the final script.\n",
+        "videoUrls": "={{ $json.videoUrl }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        544,
+        0
+      ],
+      "id": "0cbc28c0-ec84-47af-abc5-898dbca3c290",
+      "name": "Analyze Vid2",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "maxTries": 5,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "REPLACE_ME",
+          "name": "[Google Gemini]"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-2.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        768,
+        448
+      ],
+      "id": "bd9a173b-ee0b-4d4e-9856-d6e38498a7d9",
+      "name": "2.5-flash-lite2",
+      "credentials": {
+        "openRouterApi": {
+          "id": "REPLACE_ME",
+          "name": "[OpenRouter]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-2.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        704,
+        128
+      ],
+      "id": "631619bb-9e5b-4e91-9b63-2036781e634a",
+      "name": "2.5-flash-lite3",
+      "credentials": {
+        "openRouterApi": {
+          "id": "REPLACE_ME",
+          "name": "[OpenRouter]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Transcript:\n{{ $json.content.parts[0].text }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=# Overview\nYou are an AI agent that acts as an expert Instagram strategist and hook analyzer.\n\n## Your Goal\nYour task is to analyze the provided transcript and extract the hook. The hook is usually the first sentence or the first element of the video script that catches the viewer's attention. Most of the time it's a verbal hook, but there are visual hooks sometimes too. Extract the hook and also extract 1 to 3 power words/phrases from the hook that are likely contributing to its strong performance. These power words should stand out because they create curiosity, offer value, and appeal to the viewer’s emotions or goals.\n\n## Strict Output Format:\n[the hook of the video]\n\nPower Words: [1-3 most significant words/phrases in the first sentence]"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        848,
+        -16
+      ],
+      "id": "f88dec74-6714-4c38-a106-cfedd2dc2ae4",
+      "name": "Hook Analyzer2",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "[NOTION_IG_MY_REELS_DB_ID]",
+          "mode": "list",
+          "cachedResultName": "IG My Reels",
+          "cachedResultUrl": "https://www.notion.so/[NOTION_IG_MY_REELS_DB_ID]"
+        },
+        "title": "={{ $('Limit Top ').item.json.caption.slice(0, 2000) }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Thumbnail|files",
+              "fileUrls": {
+                "fileUrl": [
+                  {
+                    "name": "thumbnail",
+                    "url": "={{ $('Limit Top ').item.json.displayUrl }}"
+                  }
+                ]
+              }
+            },
+            {
+              "key": "User|rich_text",
+              "textContent": "={{ $('Limit Top ').item.json.ownerUsername }}"
+            },
+            {
+              "key": "URL|url",
+              "urlValue": "={{ $('Limit Top ').item.json.url }}"
+            },
+            {
+              "key": "Transcript|rich_text",
+              "textContent": "={{ $('Analyze Vid2').item?.json?.content?.parts?.[0]?.text?.slice(0, 2000) ?? \"transcription failed :/\" }}"
+            },
+            {
+              "key": "Hook Analysis|rich_text",
+              "textContent": "={{ $json.text }}"
+            },
+            {
+              "key": "Views|number",
+              "numberValue": "={{ $('Limit Top ').item.json.videoPlayCount }}"
+            },
+            {
+              "key": "Likes|number",
+              "numberValue": "={{ $('Limit Top ').item.json.likesCount }}"
+            },
+            {
+              "key": "Comments|number",
+              "numberValue": "={{ $('Limit Top ').item.json.commentsCount }}"
+            },
+            {
+              "key": "Post Date|date",
+              "date": "={{ $('Limit Top ').item.json.timestamp.toDateTime().format('MM-dd-yyyy') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1152,
+        64
+      ],
+      "id": "71ad55b1-c6b1-42c3-91bf-2c20e1e791eb",
+      "name": "Add My Reels1",
+      "retryOnFail": true,
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "[NOTION_IG_COMPETITOR_REELS_DB_ID]",
+          "mode": "list",
+          "cachedResultName": "IG Competitor Reels",
+          "cachedResultUrl": "https://www.notion.so/[NOTION_IG_COMPETITOR_REELS_DB_ID]"
+        },
+        "returnAll": true,
+        "simple": false,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -960,
+        336
+      ],
+      "id": "817189ec-3d54-49ca-9051-5bf6a38d34d2",
+      "name": "Get Comp Reels1",
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "archive",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        }
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -784,
+        336
+      ],
+      "id": "98122a55-4481-498b-a3d8-07af3c8ef64f",
+      "name": "Clear Pages3",
+      "alwaysOutputData": false,
+      "retryOnFail": true,
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "[NOTION_IG_COMPETITOR_LIST_DB_ID]",
+          "mode": "list",
+          "cachedResultName": "IG Competitor List",
+          "cachedResultUrl": "https://www.notion.so/[NOTION_IG_COMPETITOR_LIST_DB_ID]"
+        },
+        "returnAll": true,
+        "simple": false,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Status|checkbox",
+              "condition": "equals",
+              "checkboxValue": true
+            },
+            {
+              "key": "Page URL|url",
+              "condition": "is_not_empty"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -624,
+        336
+      ],
+      "id": "54ca206d-7546-41e5-8b76-a135ea7898b2",
+      "name": "Get Comp List1",
+      "executeOnce": true,
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "Run actor and get dataset",
+        "actorId": {
+          "__rl": true,
+          "value": "xMc5Ga1oCONPmWJIa",
+          "mode": "list",
+          "cachedResultName": "Instagram Reel Scraper (apify/instagram-reel-scraper)",
+          "cachedResultUrl": "https://console.apify.com/actors/xMc5Ga1oCONPmWJIa/input"
+        },
+        "customBody": "={\n    \"resultsLimit\": 15,\n    \"username\": [\n        \"{{ $json.properties['Page URL'].url }}\"\n    ]\n}",
+        "timeout": 300
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        336
+      ],
+      "id": "2ece90cc-b172-42d0-9992-19425f9ecafa",
+      "name": "Get Reels2",
+      "retryOnFail": true,
+      "credentials": {
+        "apifyApi": {
+          "id": "REPLACE_ME",
+          "name": "[Apify]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "772feab2-4b18-4218-852e-26a41ff3a291",
+              "leftValue": "={{ $json.timestamp }}",
+              "rightValue": "={{ $now.minus({ weeks: 2 }).toISO() }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "after"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -80,
+        336
+      ],
+      "id": "e9094a6c-f995-4f60-92f1-d3accf982578",
+      "name": "Past 2 wks1",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "772feab2-4b18-4218-852e-26a41ff3a291",
+              "leftValue": "={{ $json.timestamp }}",
+              "rightValue": "={{ $now.minus({ months: 3 }).toISO() }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "after"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -96,
+        80
+      ],
+      "id": "d7ec2873-454a-4f8e-a2c5-5e19e849d631",
+      "name": "Past 3 mos1",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "sortFieldsUi": {
+          "sortField": [
+            {
+              "fieldName": "videoPlayCount",
+              "order": "descending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.sort",
+      "typeVersion": 1,
+      "position": [
+        304,
+        352
+      ],
+      "id": "0f3512ab-3915-4f93-8a5a-940da3f94c0c",
+      "name": "Sort By Views3",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "maxItems": 5
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        464,
+        352
+      ],
+      "id": "35cc8adf-9c97-4131-baa3-58a35df3fd73",
+      "name": "Limit Top 6",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "text": "=You are a Video Script Breakdown Agent.  \nYour task: Transcribe the raw video into a clean script.  \n\n### OUTPUT FORMAT RULES  \n- Include any notable visual elements.\n- Maximum length: **2000 characters**.  \n- No timestamps, no conversational commentary. Output only the final script.\n",
+        "videoUrls": "={{ $json.videoUrl }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        656,
+        272
+      ],
+      "id": "b1646268-12bd-41fd-a52a-526edec16c8f",
+      "name": "Analyze Vid3",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "maxTries": 5,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "REPLACE_ME",
+          "name": "[Google Gemini]"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "[NOTION_IG_COMPETITOR_REELS_DB_ID]",
+          "mode": "list",
+          "cachedResultName": "IG Competitor Reels",
+          "cachedResultUrl": "https://www.notion.so/[NOTION_IG_COMPETITOR_REELS_DB_ID]"
+        },
+        "title": "={{ $('Limit Top 6').item.json.caption.slice(0, 2000) }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Thumbnail|files",
+              "fileUrls": {
+                "fileUrl": [
+                  {
+                    "name": "thumbnail",
+                    "url": "={{ $('Limit Top 6').item.json.displayUrl }}"
+                  }
+                ]
+              }
+            },
+            {
+              "key": "User|rich_text",
+              "textContent": "={{ $('Limit Top 6').item.json.ownerUsername }}"
+            },
+            {
+              "key": "URL|url",
+              "urlValue": "={{ $('Limit Top 6').item.json.url }}"
+            },
+            {
+              "key": "Transcript|rich_text",
+              "textContent": "={{ $('Analyze Vid3').item?.json?.content?.parts?.[0]?.text?.slice(0, 2000) ?? \"transcription failed :/\" }}"
+            },
+            {
+              "key": "Hook Analysis|rich_text",
+              "textContent": "={{ $json.text }}"
+            },
+            {
+              "key": "Views|number",
+              "numberValue": "={{ $('Limit Top 6').item.json.videoPlayCount }}"
+            },
+            {
+              "key": "Likes|number",
+              "numberValue": "={{ $('Limit Top 6').item.json.likesCount }}"
+            },
+            {
+              "key": "Comments|number",
+              "numberValue": "={{ $('Limit Top 6').item.json.commentsCount }}"
+            },
+            {
+              "key": "Post Date|date",
+              "date": "={{ $('Limit Top 6').item.json.timestamp.toDateTime().format('MM-dd-yyyy') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1152,
+        320
+      ],
+      "id": "131314d0-7ac9-451b-9396-45bbeba3e9de",
+      "name": "Add Comp Reels1",
+      "retryOnFail": true,
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1a948380-12ef-4bc7-8e63-0abf7a1f3a8b",
+              "name": "my_reels_data",
+              "value": "={{ $('Add My Reels1').all() }}",
+              "type": "string"
+            },
+            {
+              "id": "1558f0e8-927a-491d-a6a7-49f79e6c1bf0",
+              "name": "competitor_reels_data",
+              "value": "={{ $('Loop1').all() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -960,
+        608
+      ],
+      "id": "f934ec55-9a28-486d-88a5-f989606cd3f5",
+      "name": "Set Data1",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "content": "## Weekly Report Agent",
+        "height": 340,
+        "width": 1052
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1008,
+        528
+      ],
+      "id": "699ade41-2fc1-4feb-981f-918db407d1b9",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Transcript:\n{{ $json.content.parts[0].text }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=# Overview\nYou are an AI agent that acts as an expert Instagram strategist and hook analyzer.\n\n## Your Goal\nYour task is to analyze the provided transcript and extract the hook. The hook is usually the first sentence or the first element of the video script that catches the viewer's attention. Most of the time it's a verbal hook, but there are visual hooks sometimes too. Extract the hook and also extract 1 to 3 power words/phrases from the hook that are likely contributing to its strong performance. These power words should stand out because they create curiosity, offer value, and appeal to the viewer’s emotions or goals.\n\n## Strict Output Format:\n[the hook of the video]\n\nPower Words: [1-3 most significant words/phrases in the first sentence]"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        864,
+        272
+      ],
+      "id": "37b1a628-38a6-418d-a37a-0f08add1a13f",
+      "name": "Hook Analyzer3",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code Node: Convert Competitor Analysis JSON to Notion Blocks\n// Run mode: Run Once for All Items\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // Create Notion blocks array\n  const notionBlocks = [];\n  \n  // ========================================\n  // PAGE TITLE (Heading 1)\n  // ========================================\n  notionBlocks.push({\n    object: \"block\",\n    type: \"heading_1\",\n    heading_1: {\n      rich_text: [{\n        type: \"text\",\n        text: {\n          content: \"🎯 IG Research Report\"\n        },\n        annotations: {\n          bold: true,\n          italic: false,\n          strikethrough: false,\n          underline: false,\n          code: false,\n          color: \"default\"\n        }\n      }],\n      color: \"blue\",\n      is_toggleable: false\n    }\n  });\n  \n  // Add date\n  notionBlocks.push({\n    object: \"block\",\n    type: \"paragraph\",\n    paragraph: {\n      rich_text: [{\n        type: \"text\",\n        text: {\n          content: `Analysis Date: ${new Date().toLocaleDateString()}`\n        },\n        annotations: {\n          bold: false,\n          italic: true,\n          strikethrough: false,\n          underline: false,\n          code: false,\n          color: \"gray\"\n        }\n      }],\n      color: \"default\"\n    }\n  });\n  \n  // Divider\n  notionBlocks.push({\n    object: \"block\",\n    type: \"divider\",\n    divider: {}\n  });\n  \n  // ========================================\n  // KEY TAKEAWAY CALLOUT\n  // ========================================\n  notionBlocks.push({\n    object: \"block\",\n    type: \"callout\",\n    callout: {\n      rich_text: [{\n        type: \"text\",\n        text: {\n          content: data.key_takeaway || \"No key takeaway provided\"\n        },\n        annotations: {\n          bold: false,\n          italic: false,\n          strikethrough: false,\n          underline: false,\n          code: false,\n          color: \"default\"\n        }\n      }],\n      icon: {\n        emoji: \"💡\"\n      },\n      color: \"blue_background\"\n    }\n  });\n  \n  // Divider\n  notionBlocks.push({\n    object: \"block\",\n    type: \"divider\",\n    divider: {}\n  });\n  \n  // ========================================\n  // TOP COMPETITOR VIDEOS SECTION\n  // ========================================\n  notionBlocks.push({\n    object: \"block\",\n    type: \"heading_2\",\n    heading_2: {\n      rich_text: [{\n        type: \"text\",\n        text: {\n          content: \"🏆 Top Performing Videos\"\n        },\n        annotations: {\n          bold: true,\n          italic: false,\n          strikethrough: false,\n          underline: false,\n          code: false,\n          color: \"default\"\n        }\n      }],\n      color: \"purple\",\n      is_toggleable: false\n    }\n  });\n  \n  // Process each video\n  if (data.top_competitor_videos && Array.isArray(data.top_competitor_videos)) {\n    data.top_competitor_videos.forEach((video, index) => {\n      // Video toggle (collapsible section)\n      const videoChildren = [];\n      \n      // Metadata (Creator, Views, Date)\n      videoChildren.push({\n        object: \"block\",\n        type: \"paragraph\",\n        paragraph: {\n          rich_text: [{\n            type: \"text\",\n            text: {\n              content: `Creator: ${video.creator}`\n            },\n            annotations: {\n              bold: false,\n              italic: false,\n              strikethrough: false,\n              underline: false,\n              code: false,\n              color: \"gray\"\n            }\n          }],\n          color: \"default\"\n        }\n      });\n      \n      videoChildren.push({\n        object: \"block\",\n        type: \"paragraph\",\n        paragraph: {\n          rich_text: [{\n            type: \"text\",\n            text: {\n              content: `Views: ${video.views.toLocaleString()}`\n            },\n            annotations: {\n              bold: false,\n              italic: false,\n              strikethrough: false,\n              underline: false,\n              code: false,\n              color: \"gray\"\n            }\n          }],\n          color: \"default\"\n        }\n      });\n      \n      // Format date as MM-DD-YYYY\n      const dateParts = video.posted_date.split('-');\n      const formattedDate = `${dateParts[1]}-${dateParts[2]}-${dateParts[0]}`;\n      \n      videoChildren.push({\n        object: \"block\",\n        type: \"paragraph\",\n        paragraph: {\n          rich_text: [{\n            type: \"text\",\n            text: {\n              content: `Posted: ${formattedDate}`\n            },\n            annotations: {\n              bold: false,\n              italic: false,\n              strikethrough: false,\n              underline: false,\n              code: false,\n              color: \"gray\"\n            }\n          }],\n          color: \"default\"\n        }\n      });\n      \n      // URL\n      videoChildren.push({\n        object: \"block\",\n        type: \"paragraph\",\n        paragraph: {\n          rich_text: [\n            {\n              type: \"text\",\n              text: {\n                content: \"Watch Video\",\n                link: {\n                  url: video.url\n                }\n              },\n              annotations: {\n                bold: false,\n                italic: false,\n                strikethrough: false,\n                underline: true,\n                code: false,\n                color: \"blue\"\n              }\n            },\n            {\n              type: \"text\",\n              text: {\n                content: \" 👈\"\n              },\n              annotations: {\n                bold: false,\n                italic: false,\n                strikethrough: false,\n                underline: false,\n                code: false,\n                color: \"default\"\n              }\n            }\n          ],\n          color: \"default\"\n        }\n      });\n      \n      // Why it worked (callout)\n      videoChildren.push({\n        object: \"block\",\n        type: \"callout\",\n        callout: {\n          rich_text: [{\n            type: \"text\",\n            text: {\n              content: video.why_it_worked\n            },\n            annotations: {\n              bold: false,\n              italic: false,\n              strikethrough: false,\n              underline: false,\n              code: false,\n              color: \"default\"\n            }\n          }],\n          icon: {\n            emoji: \"✅\"\n          },\n          color: \"green_background\"\n        }\n      });\n      \n      // Main toggle for the video\n      notionBlocks.push({\n        object: \"block\",\n        type: \"toggle\",\n        toggle: {\n          rich_text: [\n            {\n              type: \"text\",\n              text: {\n                content: `#${video.rank} - `\n              },\n              annotations: {\n                bold: true,\n                italic: false,\n                strikethrough: false,\n                underline: false,\n                code: false,\n                color: \"default\"\n              }\n            },\n            {\n              type: \"text\",\n              text: {\n                content: video.hook\n              },\n              annotations: {\n                bold: false,\n                italic: false,\n                strikethrough: false,\n                underline: false,\n                code: false,\n                color: \"default\"\n              }\n            }\n          ],\n          color: \"default\",\n          children: videoChildren\n        }\n      });\n    });\n  }\n  \n  // Divider\n  notionBlocks.push({\n    object: \"block\",\n    type: \"divider\",\n    divider: {}\n  });\n  \n  // ========================================\n  // WINNING PATTERNS SECTION\n  // ========================================\n  notionBlocks.push({\n    object: \"block\",\n    type: \"heading_2\",\n    heading_2: {\n      rich_text: [{\n        type: \"text\",\n        text: {\n          content: \"🧩 Winning Patterns\"\n        },\n        annotations: {\n          bold: true,\n          italic: false,\n          strikethrough: false,\n          underline: false,\n          code: false,\n          color: \"default\"\n        }\n      }],\n      color: \"orange\",\n      is_toggleable: false\n    }\n  });\n  \n  // Process each pattern\n  if (data.winning_patterns && Array.isArray(data.winning_patterns)) {\n    data.winning_patterns.forEach((pattern, index) => {\n      const patternChildren = [];\n      \n      // Explanation (as green callout)\n      patternChildren.push({\n        object: \"block\",\n        type: \"callout\",\n        callout: {\n          rich_text: [{\n            type: \"text\",\n            text: {\n              content: pattern.explanation\n            },\n            annotations: {\n              bold: false,\n              italic: false,\n              strikethrough: false,\n              underline: false,\n              code: false,\n              color: \"default\"\n            }\n          }],\n          icon: {\n            emoji: \"✅\"\n          },\n          color: \"green_background\"\n        }\n      });\n      \n      // Main toggle (without number)\n      notionBlocks.push({\n        object: \"block\",\n        type: \"toggle\",\n        toggle: {\n          rich_text: [{\n            type: \"text\",\n            text: {\n              content: pattern.pattern_name\n            },\n            annotations: {\n              bold: true,\n              italic: false,\n              strikethrough: false,\n              underline: false,\n              code: false,\n              color: \"default\"\n            }\n          }],\n          color: \"default\",\n          children: patternChildren\n        }\n      });\n    });\n  }\n  \n  // Divider\n  notionBlocks.push({\n    object: \"block\",\n    type: \"divider\",\n    divider: {}\n  });\n  \n  // ========================================\n  // HOOK IDEAS SECTION\n  // ========================================\n  notionBlocks.push({\n    object: \"block\",\n    type: \"heading_2\",\n    heading_2: {\n      rich_text: [{\n        type: \"text\",\n        text: {\n          content: \"🪝 Hook Ideas\"\n        },\n        annotations: {\n          bold: true,\n          italic: false,\n          strikethrough: false,\n          underline: false,\n          code: false,\n          color: \"default\"\n        }\n      }],\n      color: \"pink\",\n      is_toggleable: false\n    }\n  });\n  \n  // Process each hook\n  if (data.hook_ideas && Array.isArray(data.hook_ideas)) {\n    data.hook_ideas.forEach((hookIdea, index) => {\n      // Numbered list item with inline code hook (yellow text)\n      // and why it works as nested child\n      notionBlocks.push({\n        object: \"block\",\n        type: \"numbered_list_item\",\n        numbered_list_item: {\n          rich_text: [{\n            type: \"text\",\n            text: {\n              content: hookIdea.hook\n            },\n            annotations: {\n              bold: false,\n              italic: false,\n              strikethrough: false,\n              underline: false,\n              code: true,\n              color: \"yellow\"\n            }\n          }],\n          color: \"default\",\n          children: [\n            {\n              object: \"block\",\n              type: \"paragraph\",\n              paragraph: {\n                rich_text: [{\n                  type: \"text\",\n                  text: {\n                    content: hookIdea.why_it_works\n                  },\n                  annotations: {\n                    bold: false,\n                    italic: false,\n                    strikethrough: false,\n                    underline: false,\n                    code: false,\n                    color: \"default\"\n                  }\n                }],\n                color: \"default\"\n              }\n            }\n          ]\n        }\n      });\n    });\n  }\n  \n  // Return formatted blocks in the structure Notion expects\n  results.push({\n    json: {\n      children: notionBlocks\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        608
+      ],
+      "id": "c9aba736-9a6b-4d8d-bace-c6e64653954f",
+      "name": "Notion Block1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0d32b726-19fa-4a32-88c6-b79bc08850b7",
+              "leftValue": "={{ $json.type }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        112,
+        336
+      ],
+      "id": "7e6969ca-fefc-421c-8c28-69c5d794f81a",
+      "name": "If Empty1"
+    },
+    {
+      "parameters": {
+        "operation": "Run actor and get dataset",
+        "actorId": {
+          "__rl": true,
+          "value": "xMc5Ga1oCONPmWJIa",
+          "mode": "list",
+          "cachedResultName": "Instagram Reel Scraper (apify/instagram-reel-scraper)",
+          "cachedResultUrl": "https://console.apify.com/actors/xMc5Ga1oCONPmWJIa/input"
+        },
+        "customBody": "={\n    \"resultsLimit\": 20,\n    \"username\": [\n        \"{{ $json.your_username }}\"\n    ]\n}",
+        "timeout": 300
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        -288,
+        80
+      ],
+      "id": "a23dc10e-a1db-4ebc-afb1-4a3a774e1df2",
+      "name": "Get Reels3",
+      "retryOnFail": true,
+      "executeOnce": false,
+      "credentials": {
+        "apifyApi": {
+          "id": "REPLACE_ME",
+          "name": "[Apify]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "201df8af-94b5-4331-be98-851a476e1a4a",
+              "name": "your_username",
+              "value": "[IG_HANDLE]",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -480,
+        80
+      ],
+      "id": "235ff823-1e11-4b91-9afd-041c2bfad370",
+      "name": "SET IG User",
+      "executeOnce": true
+    }
+  ],
+  "connections": {
+    "Limit Top ": {
+      "main": [
+        [
+          {
+            "node": "Analyze Vid2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sunday @ 3am1": {
+      "main": [
+        [
+          {
+            "node": "Get My Reels1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop1": {
+      "main": [
+        [
+          {
+            "node": "Set Data1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Reels2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Page1": {
+      "main": [
+        [
+          {
+            "node": "Append Blocks1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Content Strategist1": {
+      "main": [
+        [
+          {
+            "node": "Notion Block1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4.5-sonnet1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Content Strategist1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get My Reels1": {
+      "main": [
+        [
+          {
+            "node": "Clear Pages2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Pages2": {
+      "main": [
+        [
+          {
+            "node": "SET IG User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort By Views2": {
+      "main": [
+        [
+          {
+            "node": "Limit Top ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Vid2": {
+      "main": [
+        [
+          {
+            "node": "Hook Analyzer2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2.5-flash-lite2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Hook Analyzer3",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2.5-flash-lite3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Hook Analyzer2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hook Analyzer2": {
+      "main": [
+        [
+          {
+            "node": "Add My Reels1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add My Reels1": {
+      "main": [
+        [
+          {
+            "node": "Get Comp Reels1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Comp Reels1": {
+      "main": [
+        [
+          {
+            "node": "Clear Pages3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Pages3": {
+      "main": [
+        [
+          {
+            "node": "Get Comp List1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Comp List1": {
+      "main": [
+        [
+          {
+            "node": "Loop1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Reels2": {
+      "main": [
+        [
+          {
+            "node": "Past 2 wks1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Past 2 wks1": {
+      "main": [
+        [
+          {
+            "node": "If Empty1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Past 3 mos1": {
+      "main": [
+        [
+          {
+            "node": "Sort By Views2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort By Views3": {
+      "main": [
+        [
+          {
+            "node": "Limit Top 6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit Top 6": {
+      "main": [
+        [
+          {
+            "node": "Analyze Vid3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Vid3": {
+      "main": [
+        [
+          {
+            "node": "Hook Analyzer3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Comp Reels1": {
+      "main": [
+        [
+          {
+            "node": "Loop1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Data1": {
+      "main": [
+        [
+          {
+            "node": "Content Strategist1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hook Analyzer3": {
+      "main": [
+        [
+          {
+            "node": "Add Comp Reels1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notion Block1": {
+      "main": [
+        [
+          {
+            "node": "Create Page1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Empty1": {
+      "main": [
+        [
+          {
+            "node": "Loop1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sort By Views3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Reels3": {
+      "main": [
+        [
+          {
+            "node": "Past 3 mos1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET IG User": {
+      "main": [
+        [
+          {
+            "node": "Get Reels3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "pinData": {},
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

@@ -1,0 +1,158 @@
+#!/bin/bash
+set -euo pipefail
+
+# Resolve symlinks to find the real project root
+SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$0")"
+PROJECT_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+
+CONTENT_ROOT="[CONTENT_ROOT]"
+RAW_SHORT="$CONTENT_ROOT/Raw Videos/Short Form Raw"
+RAW_LONG="$CONTENT_ROOT/Raw Videos/Long Form Raw"
+
+# shellcheck source=_lib.sh
+source "$PROJECT_ROOT/bin/_lib.sh"
+
+echo ""
+echo "  ═══════════════════════════════════════════════"
+echo "   BRAND Editor"
+echo "  ═══════════════════════════════════════════════"
+echo ""
+echo "   Pick format:"
+echo "     [1] Short Form"
+echo "     [2] Long Form"
+echo ""
+read -p "   > " fmt_choice
+
+case "$fmt_choice" in
+  1) RAW_DIR="$RAW_SHORT"; LABEL="Short Form" ;;
+  2) RAW_DIR="$RAW_LONG"; LABEL="Long Form" ;;
+  *) echo ""; echo "   Invalid choice."; exit 1 ;;
+esac
+
+# Collect entries: both single video files AND subfolders that contain videos
+entries=()   # full paths
+kinds=()     # "file" or "folder"
+
+# Files first
+while IFS= read -r f; do
+  [[ -n "$f" ]] || continue
+  entries+=("$f")
+  kinds+=("file")
+done < <(find "$RAW_DIR" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.avi" -o -iname "*.mkv" -o -iname "*.webm" \) 2>/dev/null | sort)
+
+# Then subfolders containing videos
+while IFS= read -r d; do
+  [[ -n "$d" ]] || continue
+  # Only include folders that have at least 1 video in them
+  if find "$d" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.avi" -o -iname "*.mkv" -o -iname "*.webm" \) 2>/dev/null | grep -q .; then
+    entries+=("$d")
+    kinds+=("folder")
+  fi
+done < <(find "$RAW_DIR" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | sort)
+
+if [[ ${#entries[@]} -eq 0 ]]; then
+  echo ""
+  echo "   No videos or multi-take folders found in $RAW_DIR"
+  exit 1
+fi
+
+echo ""
+echo "  ═══════════════════════════════════════════════"
+echo "   $LABEL:"
+echo "  ═══════════════════════════════════════════════"
+echo ""
+for i in "${!entries[@]}"; do
+  name=$(basename "${entries[$i]}")
+  if [[ "${kinds[$i]}" == "folder" ]]; then
+    count=$(find "${entries[$i]}" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.avi" -o -iname "*.mkv" -o -iname "*.webm" \) 2>/dev/null | wc -l | tr -d ' ')
+    echo "     [$((i+1))] 📁 $name  ($count takes)"
+  else
+    echo "     [$((i+1))] 🎬 $name"
+  fi
+done
+echo ""
+read -p "   Pick [1-${#entries[@]}]: " choice
+
+if [[ -z "$choice" ]] || [[ "$choice" -lt 1 ]] || [[ "$choice" -gt ${#entries[@]} ]]; then
+  echo "   Invalid choice."
+  exit 1
+fi
+
+PICK="${entries[$((choice - 1))]}"
+KIND="${kinds[$((choice - 1))]}"
+NAME=$(basename "$PICK")
+
+pick_style "$PROJECT_ROOT"
+
+echo ""
+echo "  ═══════════════════════════════════════════════"
+echo "   Processing: $NAME ($KIND)"
+echo "  ═══════════════════════════════════════════════"
+echo ""
+
+cd "$PROJECT_ROOT"
+
+if [[ "$KIND" == "folder" ]]; then
+  # Multi-video flow: pass all videos inside the folder to multi-pipeline with --full
+  videos=()
+  while IFS= read -r v; do
+    [[ -n "$v" ]] && videos+=("$v")
+  done < <(find "$PICK" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.avi" -o -iname "*.mkv" -o -iname "*.webm" \) 2>/dev/null | sort)
+
+  if [[ ${#videos[@]} -lt 2 ]]; then
+    echo "   Folder needs at least 2 videos — got ${#videos[@]}"
+    exit 1
+  fi
+
+  npx tsx scripts/multi-pipeline.ts "${videos[@]}" --title "$NAME" --full
+  FOLDER="$CONTENT_ROOT/$LABEL/$NAME"
+else
+  # Single-video flow: pipeline → b-roll → subs
+  RESULT_LINE=""
+  capture_next=false
+  while IFS= read -r line; do
+    echo "$line"
+    if [[ "$capture_next" == true ]]; then
+      RESULT_LINE="$line"
+      capture_next=false
+    fi
+    if [[ "$line" == *"__RESULT__"* ]]; then
+      after="${line#*__RESULT__}"
+      after="${after# }"
+      if [[ -n "$after" && "$after" == "{"* ]]; then
+        RESULT_LINE="$after"
+      else
+        capture_next=true
+      fi
+    fi
+  done < <(npx tsx scripts/pipeline.ts "$PICK" 2>&1)
+
+  if [[ -z "$RESULT_LINE" ]]; then
+    echo ""
+    echo "   ERROR: Pipeline failed for $NAME"
+    exit 1
+  fi
+
+  FOLDER=$(echo "$RESULT_LINE" | python3 -c "import sys,json; print(json.load(sys.stdin)['contentFolder'])")
+
+  echo ""
+  echo "   Running b-roll..."
+  npx tsx scripts/broll.ts "$FOLDER" 2>&1
+
+  echo ""
+  echo "   Running subtitles (style: $PICKED_STYLE)..."
+  npx tsx scripts/subs.ts "$FOLDER" --style "$PICKED_STYLE" 2>&1
+fi
+
+# Open folder in Finder if we know it
+if [[ -d "$FOLDER" ]]; then
+  save_style_to_folder "$FOLDER"
+  open "$FOLDER"
+fi
+
+echo ""
+echo "  ═══════════════════════════════════════════════"
+echo "   ✓ Done: $NAME"
+[[ -d "$FOLDER" ]] && echo "   → $FOLDER"
+echo "  ═══════════════════════════════════════════════"
+echo ""

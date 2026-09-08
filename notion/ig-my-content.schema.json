@@ -1,0 +1,111 @@
+{
+  "title": "IG My Content",
+  "description": "",
+  "properties": {
+    "Target Audience": {
+      "type": "select",
+      "select": {
+        "options": []
+      }
+    },
+    "Include CTA?": {
+      "type": "checkbox",
+      "checkbox": {}
+    },
+    "Post Date": {
+      "type": "date",
+      "date": {}
+    },
+    "Hook Analysis": {
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Comments": {
+      "type": "number",
+      "number": {
+        "format": "number_with_commas"
+      }
+    },
+    "Views": {
+      "type": "number",
+      "number": {
+        "format": "number_with_commas"
+      }
+    },
+    "Likes": {
+      "type": "number",
+      "number": {
+        "format": "number_with_commas"
+      }
+    },
+    "Saves": {
+      "type": "number",
+      "number": {
+        "format": "number_with_commas"
+      }
+    },
+    "Last Updated": {
+      "type": "last_edited_time",
+      "last_edited_time": {}
+    },
+    "Engagement Rate": {
+      "type": "formula",
+      "formula": {
+        "expression": "prop(\"Likes\")/prop(\"Views\")"
+      }
+    },
+    "Content Piece": {
+      "type": "relation",
+      "relation": {
+        "database": "[see docs/02-notion-schema.md]",
+        "type": "dual_property"
+      }
+    },
+    "URL": {
+      "type": "url",
+      "url": {}
+    },
+    "Container ID": {
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Funnel Stage": {
+      "type": "select",
+      "select": {
+        "options": []
+      }
+    },
+    "Thumbnail URL": {
+      "type": "url",
+      "url": {}
+    },
+    "Transcript": {
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Reach": {
+      "type": "number",
+      "number": {
+        "format": "number_with_commas"
+      }
+    },
+    "Shares": {
+      "type": "number",
+      "number": {
+        "format": "number_with_commas"
+      }
+    },
+    "Has Transcript": {
+      "type": "checkbox",
+      "checkbox": {}
+    },
+    "Post ID": {
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Caption": {
+      "type": "title",
+      "title": {}
+    }
+  }
+}

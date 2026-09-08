@@ -1,0 +1,2692 @@
+{
+  "name": "1. Auto-Poster (Unified — Carousels + Video)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 8,10,12,14,16,18 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2768,
+        -304
+      ],
+      "id": "ccf76229-54c3-4da9-a8c3-a1856135d432",
+      "name": "Schedule (8, 10, 12, 14, 16, 18)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "nv",
+              "name": "Notion_Version",
+              "value": "2022-06-28",
+              "type": "string"
+            },
+            {
+              "id": "db",
+              "name": "NOTION_CONTENT_DB",
+              "value": "[NOTION_CPP_DB_ID]",
+              "type": "string"
+            },
+            {
+              "id": "igdb",
+              "name": "NOTION_IG_MY_CONTENT_DB",
+              "value": "[NOTION_IG_MY_CONTENT_DB_ID]",
+              "type": "string"
+            },
+            {
+              "id": "ytdb",
+              "name": "NOTION_YT_MY_CONTENT_DB",
+              "value": "[NOTION_YT_MY_CONTENT_DB_ID]",
+              "type": "string"
+            },
+            {
+              "id": "igid",
+              "name": "IG_ACCOUNT_ID",
+              "value": "[IG_ACCOUNT_ID]",
+              "type": "string"
+            },
+            {
+              "id": "s3",
+              "name": "S3_BUCKET",
+              "value": "[S3_BUCKET]",
+              "type": "string"
+            },
+            {
+              "id": "s3r",
+              "name": "S3_REGION",
+              "value": "auto",
+              "type": "string"
+            },
+            {
+              "id": "slack",
+              "name": "SLACK_CHANNEL",
+              "value": "[SLACK_CHANNEL_ID]",
+              "type": "string"
+            },
+            {
+              "id": "ytcid",
+              "name": "YT_OAUTH_CLIENT_ID",
+              "value": "[YT_OAUTH_CLIENT_ID]",
+              "type": "string"
+            },
+            {
+              "id": "ytcs",
+              "name": "YT_OAUTH_CLIENT_SECRET",
+              "value": "[YT_OAUTH_CLIENT_SECRET]",
+              "type": "string"
+            },
+            {
+              "id": "ytrt",
+              "name": "YT_OAUTH_REFRESH_TOKEN",
+              "value": "[YT_OAUTH_REFRESH_TOKEN]",
+              "type": "string"
+            },
+            {
+              "id": "s3pub",
+              "name": "S3_PUBLIC_URL",
+              "value": "https://[S3_PUBLIC_HOST]",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2544,
+        -304
+      ],
+      "id": "d23f1372-d239-4a4e-b8da-81aabd96b42d",
+      "name": "SET Variables"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "[NOTION_CPP_DB_ID]",
+          "mode": "list",
+          "cachedResultName": "Content Pipeline",
+          "cachedResultUrl": "https://www.notion.so/[NOTION_CPP_DB_ID]"
+        },
+        "returnAll": true,
+        "simple": false,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Status|status",
+              "condition": "equals",
+              "statusValue": "Ready"
+            }
+          ]
+        },
+        "options": {
+          "sort": {
+            "sortValue": [
+              {
+                "key": "Upload Date|date",
+                "direction": "ascending"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -2176,
+        -192
+      ],
+      "id": "95b925c3-bc84-4a1a-9dc0-5a7214a985cc",
+      "name": "Get Scheduled Posts",
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "date-exists",
+              "leftValue": "={{ $json.properties['Upload Date']?.date?.start }}",
+              "rightValue": "",
+              "operator": {
+                "type": "dateTime",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        -1984,
+        -192
+      ],
+      "id": "3c046904-db60-4aef-a621-fe5df3605b18",
+      "name": "Has Upload Date?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "is-due",
+              "leftValue": "={{ $json.properties[\"Upload Date\"].date.start }}",
+              "rightValue": "={{ $now.toISO() }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "beforeOrEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        -1792,
+        -192
+      ],
+      "id": "4c2f584f-2360-4c7c-a983-e9ace0b937e4",
+      "name": "Is Due?"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1600,
+        -304
+      ],
+      "id": "55ccf0d5-e3e4-49d8-88c8-9eff1c3ab23c",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "const notion = $input.first().json;\n\n// === SKIP if Type is not one we handle in this workflow ===\nconst contentType = notion.properties?.['Type']?.select?.name || '';\nconst allowed = ['Short Form', 'Long Form', 'Carousel'];\nif (!allowed.includes(contentType)) {\n  console.log('⏭️  Skipping (Type=' + contentType + ')');\n  return [];\n}\n\n// === TITLE / CAPTION (used by all branches) ===\nconst titleBlocks = notion.properties?.['Title']?.title || [];\nconst pageTitle = titleBlocks.map(b => b.plain_text || '').join('').trim();\nconst ytTitleBlocks = notion.properties?.['YouTube Title']?.rich_text || [];\nconst ytTitle = ytTitleBlocks.map(b => b.plain_text || '').join('').trim();\nconst captionBlocks = notion.properties?.['Caption']?.rich_text || [];\nconst caption = captionBlocks.map(b => b.plain_text || '').join('').replace(/\\r\\n/g, '\\n').trim();\nconst finalCaption = caption || '🚀';\n\n// === PLATFORMS multi-select (drives ALL branching) ===\nconst platforms = (notion.properties?.['Platforms']?.multi_select || []).map(p => p.name);\nconst needsIG      = platforms.includes('Instagram');\nconst needsFB      = platforms.includes('Facebook');     // FB ticked as IG side-effect (Account Center toggle)\nconst needsYTShort = platforms.includes('YouTube Shorts');\nconst needsYTLong  = platforms.includes('YouTube');      // long-form\n\n// === VIDEO FORMAT ===\nconst videoFormat = notion.properties?.['Video Format']?.select?.name || '';\nconst isLandscape = videoFormat.startsWith('Landscape');\nconst isVertical  = videoFormat.startsWith('Vertical');\nconst isSquare    = videoFormat.startsWith('Square');\n\n// Letterbox 16:9 → 9:16 black-canvas only when posting to vertical surfaces\nconst needsLetterbox = isLandscape && needsYTShort; // letterbox ONLY for YT Shorts — IG posts landscape as-is\n\n// Guardrail: Long Form must be 16:9\nif (contentType === 'Long Form' && !isLandscape) {\n  throw new Error('❌ Long Form must be Landscape (16:9). Got: ' + videoFormat);\n}\n\n// === CAROUSEL branch — image OR video slides (mp4 → VIDEO child container) ===\nconst isCarousel = contentType === 'Carousel';\nlet carouselFiles = [];\nif (isCarousel) {\n  carouselFiles = (notion.properties?.['Carousel Images']?.files || []).map(f => {\n    const url = f.file?.url || f.external?.url;\n    if (!url) return null;\n    const name = (f.name || url.split('?')[0]).toLowerCase();\n    const m = name.match(/\\.(mp4|mov|png|jpg|jpeg)(?:$|\\?)/);\n    const ext = m ? (m[1] === 'jpeg' ? 'jpg' : m[1]) : 'png';\n    return { url, ext, isVideo: ext === 'mp4' || ext === 'mov' };\n  }).filter(Boolean);\n  if (carouselFiles.length === 0) throw new Error('❌ Carousel has no images in \"Carousel Images\"');\n}\n\n// === VIDEO branch — needs Drive video URL ===\nlet driveUrl = null, driveFileId = null, downloadUrl = null;\nif (!isCarousel) {\n  driveUrl = notion.properties?.['Final Video (drive)']?.url || null;\n  if (!driveUrl) throw new Error('❌ No Google Drive link in \"Final Video (drive)\"');\n  if (!driveUrl.includes('drive.google.com')) throw new Error('❌ Not a Drive link: ' + driveUrl);\n  if (driveUrl.includes('/file/d/')) driveFileId = driveUrl.split('/file/d/')[1].split('/')[0];\n  else if (driveUrl.includes('id=')) driveFileId = driveUrl.split('id=')[1].split('&')[0];\n  if (!driveFileId) throw new Error('❌ Cannot extract File ID from: ' + driveUrl);\n  downloadUrl = `https://drive.google.com/uc?export=download&id=${driveFileId}`;\n}\n\n// === THUMBNAIL ===\nconst thumbnailFiles = notion.properties?.['Thumbnail']?.files || [];\nconst thumbnailUrl = thumbnailFiles.length > 0\n  ? (thumbnailFiles[0].file?.url || thumbnailFiles[0].external?.url)\n  : null;\n\n// === IDEMPOTENCY: read already-posted state ===\nconst alreadyIG = notion.properties?.['Posted on IG']?.checkbox === true;\nconst alreadyYT = notion.properties?.['Posted on YT']?.checkbox === true;\n\nconst uploadDate = notion.properties?.['Upload Date']?.date?.start || null;\n\nconsole.log(`📝 ${pageTitle} | Type=${contentType} | Format=${videoFormat}`);\nconsole.log(`   Platforms: IG=${needsIG} FB=${needsFB} YTShort=${needsYTShort} YTLong=${needsYTLong} | Letterbox=${needsLetterbox}`);\nconsole.log(`   Already posted: IG=${alreadyIG} YT=${alreadyYT}`);\n\nreturn {\n  json: {\n    pageTitle, ytTitle, caption: finalCaption,\n    contentType, isCarousel,\n    videoFormat, isLandscape, isVertical, isSquare,\n    needsIG, needsFB, needsYTShort, needsYTLong, needsLetterbox,\n    alreadyIG, alreadyYT,\n    driveUrl, driveFileId, downloadUrl,\n    carouselFiles,\n    thumbnailUrl,\n    uploadDate,\n    pageId: notion.id,\n    pageUrl: notion.url\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1360,
+        -288
+      ],
+      "id": "bbfddafb-ecee-4638-b7c0-fdc5417e0533",
+      "name": "Extract Notion Data"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.driveFileId }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -960,
+        176
+      ],
+      "id": "7fb1e2ef-34e4-4d3e-ba56-518f0f28cbe7",
+      "name": "Download Video",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE_ME",
+          "name": "[Google Drive OAuth2]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "needs-ig",
+              "leftValue": "={{ $('Extract Notion Data').first().json.needsIG }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "gate-alreadyIG",
+              "leftValue": "={{ $('Extract Notion Data').first().json.alreadyIG }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1344,
+        -496
+      ],
+      "id": "fe8247a6-70ff-494a-86ee-2b14f47b1e1c",
+      "name": "Needs Instagram?"
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "={{ $('SET Variables').first().json.S3_BUCKET }}",
+        "fileName": "=reels/instagram_{{ $('Extract Notion Data').first().json.pageId }}.mp4",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        -1104,
+        -512
+      ],
+      "id": "2c33950e-660b-41ae-8156-b84f9e61cc8b",
+      "name": "Upload to S3",
+      "credentials": {
+        "s3": {
+          "id": "REPLACE_ME",
+          "name": "[S3 / Cloudflare R2]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const notionData = $('Extract Notion Data').first().json;\nconst vars = $('SET Variables').first().json;\nconst fileName = `reels/instagram_${notionData.pageId}.mp4`;\nconst publicVideoUrl = `${vars.S3_PUBLIC_URL}/${fileName}`;\n\nreturn {\n  json: {\n    publicVideoUrl,\n    caption: notionData.caption,\n    thumbnailUrl: notionData.thumbnailUrl,\n    aspectRatio: notionData.aspectRatio,\n    pageId: notionData.pageId,\n    pageUrl: notionData.pageUrl\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        -512
+      ],
+      "id": "915e7bd7-cef7-4727-af9f-644b5266c50d",
+      "name": "Build Public URL"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v24.0/{{ $('SET Variables').first().json.IG_ACCOUNT_ID }}/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"media_type\": \"REELS\",\n  \"video_url\": \"{{ $json.publicVideoUrl }}\",\n  \"caption\": {{ JSON.stringify($('Extract Notion Data').first().json.caption) }},\n  \"share_to_feed\": \"true\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -672,
+        -512
+      ],
+      "id": "053667d0-39e3-44e4-85a2-091e4dc715ac",
+      "name": "Create Media Container",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Meta Graph API — System User token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -432,
+        -512
+      ],
+      "id": "999cb3e6-d594-4174-8fe3-7c00c7983cfd",
+      "name": "Wait 10 seconds",
+      "webhookId": "71685174-a51a-4727-8c45-0618e13a11a7"
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v24.0/{{ $('Create Media Container').item.json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "status_code"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -224,
+        -512
+      ],
+      "id": "b365fb8a-2378-44b9-8cbf-38ffc7df99f3",
+      "name": "Check Upload Status",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Meta Graph API — System User token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "status-check",
+              "leftValue": "={{ $json.status_code }}",
+              "rightValue": "FINISHED",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        -512
+      ],
+      "id": "a01f3da7-53a1-45dc-b11c-30252e5f4786",
+      "name": "Is Upload Finished?"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        -384
+      ],
+      "id": "635bfc82-a737-4389-93ce-973b53de9ae1",
+      "name": "Wait 15s and Retry",
+      "webhookId": "fa1c20fc-2213-4459-bea9-7e23c9143100"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v24.0/{{ $('SET Variables').first().json.IG_ACCOUNT_ID }}/media_publish",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "creation_id",
+              "value": "={{ $('Create Media Container').item.json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        -624
+      ],
+      "id": "5fa4165b-63ca-4e35-ba18-740108877879",
+      "name": "Publish to Instagram",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Meta Graph API — System User token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v24.0/{{ $('Publish to Instagram').item.json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,permalink"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        -624
+      ],
+      "id": "d3e8c653-9268-42a4-8ee8-034c3380e026",
+      "name": "Get Instagram URL",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Meta Graph API — System User token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const igResult = $('Publish to Instagram').first().json;\nconst igUrl = $('Get Instagram URL').first().json;\nconst notionData = $('Extract Notion Data').first().json;\nconst containerData = $('Create Media Container').first().json;\n\nreturn {\n  json: {\n    instagramMediaId: igResult.id,\n    containerId: containerData.id,\n    instagramUrl: igUrl.permalink,\n    postedAt: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        -384
+      ],
+      "id": "ac0c2f03-8b38-4b81-b580-44eebdc76e32",
+      "name": "IG Post Summary"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/pages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Notion-Version",
+              "value": "={{ $('SET Variables').first().json.Notion_Version }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"parent\": { \"database_id\": $('SET Variables').first().json.NOTION_IG_MY_CONTENT_DB }, \"cover\": $('Extract Notion Data').first().json.thumbnailUrl ? { \"type\": \"external\", \"external\": { \"url\": $('Extract Notion Data').first().json.thumbnailUrl } } : undefined, \"properties\": { \"Caption\": { \"title\": [{ \"text\": { \"content\": $('Extract Notion Data').first().json.caption.substring(0, 2000) } }] }, \"Post ID\": { \"rich_text\": [{ \"text\": { \"content\": $json.instagramMediaId || '' } }] }, \"Container ID\": { \"rich_text\": [{ \"text\": { \"content\": $json.containerId || '' } }] }, \"URL\": { \"url\": $json.instagramUrl }, \"Thumbnail URL\": { \"url\": $('Extract Notion Data').first().json.thumbnailUrl || null }, \"Post Date\": { \"date\": { \"start\": $json.postedAt } } } }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -464,
+        256
+      ],
+      "id": "84aa9248-d3d8-452c-a6f2-72b857917177",
+      "name": "Create IG My Content Page",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $('Extract Notion Data').first().json.pageId }}",
+          "mode": "id"
+        },
+        "simple": false,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Posted on IG|checkbox",
+              "checkboxValue": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -240,
+        256
+      ],
+      "id": "a60cc479-3b71-4353-afab-1fd1db2df821",
+      "name": "Mark Posted on IG",
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "needs-yt-short",
+              "leftValue": "={{ $('Extract Notion Data').first().json.needsYTShort }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "gate-alreadyYT",
+              "leftValue": "={{ $('Extract Notion Data').first().json.alreadyYT }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -240,
+        608
+      ],
+      "id": "dd22a857-2729-42a3-863f-df0bb4c9ff52",
+      "name": "Needs YT Short?"
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// SHORTS_TAG_INJECTED — ensure YT classifies as Short\nconst _isShort = $('Extract Notion Data').first().json.needsYTShort && !$('Extract Notion Data').first().json.needsYTLong;\nconst notionData = $('Extract Notion Data').first().json;\nconst vars = $('SET Variables').first().json;\n\nconst metadata = {\n  snippet: {\n    title: ((notionData.ytTitle || notionData.pageTitle || notionData.caption) || 'Untitled').replace(/[<>]/g, '').replace(/\\s+/g, ' ').trim().substring(0, 100),\n    description: notionData.caption,\n    categoryId: \"28\"\n  },\n  status: {\n    privacyStatus: \"public\",\n    selfDeclaredMadeForKids: false\n  }\n};\n\n// Step 1: Get OAuth access token\nconsole.log('🔑 Getting YouTube access token...');\nlet tokenResponse;\ntry {\n  tokenResponse = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://oauth2.googleapis.com/token',\n    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: `client_id=${vars.YT_OAUTH_CLIENT_ID}&client_secret=${vars.YT_OAUTH_CLIENT_SECRET}&refresh_token=${vars.YT_OAUTH_REFRESH_TOKEN}&grant_type=refresh_token`\n  });\n} catch (error) {\n  const errBody = error.response?.data || error.message || 'Unknown';\n  throw new Error('❌ OAuth token failed: ' + JSON.stringify(errBody));\n}\n\nconst accessToken = tokenResponse.access_token;\nif (!accessToken) {\n  throw new Error('❌ No access token in response: ' + JSON.stringify(tokenResponse));\n}\nconsole.log('✅ Got access token');\n\n// Step 2: Initiate resumable upload\nconsole.log('📤 Initiating resumable upload...');\nconsole.log('   Title: ' + metadata.snippet.title);\nconsole.log('   Description length: ' + metadata.snippet.description.length);\n\nlet initResponse;\ntry {\n  initResponse = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',\n    headers: {\n      'Authorization': `Bearer ${accessToken}`,\n      'Content-Type': 'application/json',\n      'X-Upload-Content-Type': 'video/mp4'\n    },\n    body: JSON.stringify(metadata),\n    returnFullResponse: true\n  });\n  \n} catch (error) {\n  const status = error.httpCode || error.statusCode || error.response?.status || 'unknown';\n  const errBody = error.response?.data || error.response?.body || error.cause || error.message || 'Unknown';\n  throw new Error('❌ YT upload initiate failed (HTTP ' + status + '): ' + JSON.stringify(errBody));\n}\n\nconst uploadUrl = initResponse.headers?.location;\nif (!uploadUrl) {\n  throw new Error('❌ No upload URL in response. Headers: ' + JSON.stringify(initResponse.headers) + ' Body: ' + JSON.stringify(initResponse.body));\n}\n\nconsole.log('✅ Got upload URL');\n\n// Pass binary data through from Download Video\nconst binaryInput = $('Maybe Letterbox').first().binary;\n\nreturn {\n  json: { uploadUrl },\n  binary: binaryInput\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        512
+      ],
+      "id": "9f233b4c-7a15-4ded-ae33-e40bc57183d2",
+      "name": "YT: Initiate Upload"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $json.uploadUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "video/mp4"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        192,
+        512
+      ],
+      "id": "3eebb54e-8f36-43df-8ef9-f608d12311cd",
+      "name": "YT: Upload Video"
+    },
+    {
+      "parameters": {
+        "jsCode": "const uploadResult = $input.first().json;\nconst notionData = $('Extract Notion Data').first().json;\n\nif (!uploadResult.id) throw new Error('\\u274c YouTube upload failed: ' + JSON.stringify(uploadResult));\n\nconst isShort = notionData.contentType === 'Short Form';\nconst youtubeUrl = isShort\n  ? `https://youtube.com/shorts/${uploadResult.id}`\n  : `https://www.youtube.com/watch?v=${uploadResult.id}`;\n\nconsole.log('\\u2705 YouTube video uploaded (' + notionData.contentType + '):', uploadResult.id);\n\nreturn {\n  json: {\n    youtubeVideoId: uploadResult.id,\n    youtubeUrl,\n    youtubeTitle: notionData.pageTitle,\n    postedAt: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        512
+      ],
+      "id": "9f5f8711-d2eb-41dd-8957-e13ae72aaeeb",
+      "name": "YT: Parse Response"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/pages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Notion-Version",
+              "value": "={{ $('SET Variables').first().json.Notion_Version }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"parent\": { \"database_id\": $('SET Variables').first().json.NOTION_YT_MY_CONTENT_DB }, \"cover\": $('Extract Notion Data').first().json.thumbnailUrl ? { \"type\": \"external\", \"external\": { \"url\": $('Extract Notion Data').first().json.thumbnailUrl } } : undefined, \"properties\": { \"Caption\": { \"title\": [{ \"text\": { \"content\": $('Extract Notion Data').first().json.pageTitle || $('Extract Notion Data').first().json.caption.substring(0, 2000) } }] }, \"Video ID\": { \"rich_text\": [{ \"text\": { \"content\": $json.youtubeVideoId } }] }, \"URL\": { \"url\": $json.youtubeUrl }, \"Thumbnail URL\": { \"url\": $('Extract Notion Data').first().json.thumbnailUrl || null }, \"Post Date\": { \"date\": { \"start\": $json.postedAt } } } }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        640,
+        512
+      ],
+      "id": "ec963bf6-37e9-4186-b5b7-430358d8b924",
+      "name": "Create YT My Content Page",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $('Extract Notion Data').first().json.pageId }}",
+          "mode": "id"
+        },
+        "simple": false,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Posted on YT|checkbox",
+              "checkboxValue": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        864,
+        512
+      ],
+      "id": "0a4474a6-1011-4ba0-96d4-07541aefa7aa",
+      "name": "Mark Posted on YT",
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $('Extract Notion Data').first().json.pageId }}",
+          "mode": "id"
+        },
+        "simple": false,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Status|status",
+              "statusValue": "Posted"
+            },
+            {
+              "key": "Upload Date|date",
+              "date": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1152,
+        608
+      ],
+      "id": "82c4a342-95cc-4000-9d19-2cd4e3ba8401",
+      "name": "Set Status → Posted",
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "[SLACK_CHANNEL_ID]",
+          "mode": "list",
+          "cachedResultName": "content"
+        },
+        "text": "={{ (() => {\n  const d = $('Extract Notion Data').first().json;\n  const nowIG = d.postedOnIG || d.needsIG;\n  const nowYT = d.postedOnYT || d.needsYT;\n  const formatDate = (iso) => {\n    if (!iso) return 'lige nu';\n    const dt = new Date(iso);\n    return dt.toLocaleDateString('da-DK', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + dt.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' });\n  };\n  let igUrl = '', igDate = '';\n  if ($('Carousel: Get Instagram URL').isExecuted) {\n    igUrl = $('Carousel: Get Instagram URL').first()?.json?.permalink || '';\n    igDate = $('Carousel: IG Post Summary').first()?.json?.postedAt || d.uploadDate || '';\n  } else if ($('Get Instagram URL').isExecuted) {\n    igUrl = $('Get Instagram URL').first()?.json?.permalink || '';\n    igDate = $('IG Post Summary').first()?.json?.postedAt || d.uploadDate || '';\n  }\n  const lines = ['✅ *' + d.pageTitle + '*', ''];\n  if (nowIG) {\n    const igLink = igUrl ? '<' + igUrl + '|Instagram>' : 'Instagram';\n    lines.push('📱 ' + igLink + ' — ' + formatDate(igDate));\n  }\n  if (nowYT) {\n    let ytUrl = '', ytDate = '';\n    if ($('YT: Parse Response').isExecuted) {\n      ytUrl = $('YT: Parse Response').first()?.json?.youtubeUrl || '';\n      ytDate = $('YT: Parse Response').first()?.json?.postedAt || '';\n    }\n    const ytLink = ytUrl ? '<' + ytUrl + '|YouTube>' : 'YouTube';\n    lines.push('▶️ ' + ytLink + ' — ' + formatDate(ytDate));\n  }\n  lines.push('', '━━━━━━━━━━━━━━━━━━', '📝 <' + d.pageUrl + '|View in Notion>');\n  return lines.join('\\n');\n})() }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        1376,
+        608
+      ],
+      "id": "9fbc9849-9a46-41fa-a572-fcfd71ea2c0a",
+      "name": "Slack Notification",
+      "webhookId": "3e1a04c0-af16-46f0-b4cb-8b115956470e",
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_ME",
+          "name": "[Slack Bot]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "shortform-now",
+        "options": {}
+      },
+      "id": "webhook-post-now-shortform",
+      "name": "Webhook — Post Now",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2768,
+        -112
+      ],
+      "webhookId": "31ded0a5-e4e8-46c7-b440-1815b815e3be"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-page-id",
+              "leftValue": "={{ $(\"Webhook — Post Now\").isExecuted ? ($(\"Webhook — Post Now\").first()?.json?.body?.pageId || \"\") : ($json.pageId || \"\") }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-page-id-shortform",
+      "name": "Has Page ID?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2400,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "get",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $(\"Webhook — Post Now\").first().json.body.pageId }}",
+          "mode": "id"
+        },
+        "simple": false
+      },
+      "id": "get-single-page-shortform",
+      "name": "Get Single Page",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -1984,
+        -416
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-carousel",
+              "leftValue": "={{ $json.isCarousel }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1168,
+        96
+      ],
+      "id": "0c9c49ba-c582-4551-a45f-d2a86b2777f0",
+      "name": "Type = Carousel?"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $('Extract Notion Data').first().json.pageId }}",
+          "mode": "id"
+        },
+        "simple": false,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Posted on FB|checkbox",
+              "checkboxValue": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -464,
+        608
+      ],
+      "id": "df80a10e-e0f2-4802-907d-ebde4bfd5041",
+      "name": "Mark Posted on FB",
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "needs-yt-long",
+              "leftValue": "={{ $('Extract Notion Data').first().json.needsYTLong }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "gate-alreadyYT",
+              "leftValue": "={{ $('Extract Notion Data').first().json.alreadyYT }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1232,
+        912
+      ],
+      "id": "6a59a725-e67e-46d3-986a-c99b8154a095",
+      "name": "Needs YT Long?"
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// LONG-FORM upload (no #Shorts)\nconst _isShort = $('Extract Notion Data').first().json.needsYTShort && !$('Extract Notion Data').first().json.needsYTLong;\nconst notionData = $('Extract Notion Data').first().json;\nconst vars = $('SET Variables').first().json;\n\nconst metadata = {\n  snippet: {\n    title: ((notionData.ytTitle || notionData.pageTitle || notionData.caption) || 'Untitled').replace(/[<>]/g, '').replace(/\\s+/g, ' ').trim().substring(0, 100),\n    description: notionData.caption,\n    categoryId: \"28\"\n  },\n  status: {\n    privacyStatus: \"public\",\n    selfDeclaredMadeForKids: false\n  }\n};\n\n// Step 1: Get OAuth access token\nconsole.log('🔑 Getting YouTube access token...');\nlet tokenResponse;\ntry {\n  tokenResponse = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://oauth2.googleapis.com/token',\n    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: `client_id=${vars.YT_OAUTH_CLIENT_ID}&client_secret=${vars.YT_OAUTH_CLIENT_SECRET}&refresh_token=${vars.YT_OAUTH_REFRESH_TOKEN}&grant_type=refresh_token`\n  });\n} catch (error) {\n  const errBody = error.response?.data || error.message || 'Unknown';\n  throw new Error('❌ OAuth token failed: ' + JSON.stringify(errBody));\n}\n\nconst accessToken = tokenResponse.access_token;\nif (!accessToken) {\n  throw new Error('❌ No access token in response: ' + JSON.stringify(tokenResponse));\n}\nconsole.log('✅ Got access token');\n\n// Step 2: Initiate resumable upload\nconsole.log('📤 Initiating resumable upload...');\nconsole.log('   Title: ' + metadata.snippet.title);\nconsole.log('   Description length: ' + metadata.snippet.description.length);\n\nlet initResponse;\ntry {\n  initResponse = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',\n    headers: {\n      'Authorization': `Bearer ${accessToken}`,\n      'Content-Type': 'application/json',\n      'X-Upload-Content-Type': 'video/mp4'\n    },\n    body: JSON.stringify(metadata),\n    returnFullResponse: true\n  });\n  \n} catch (error) {\n  const status = error.httpCode || error.statusCode || error.response?.status || 'unknown';\n  const errBody = error.response?.data || error.response?.body || error.cause || error.message || 'Unknown';\n  throw new Error('❌ YT upload initiate failed (HTTP ' + status + '): ' + JSON.stringify(errBody));\n}\n\nconst uploadUrl = initResponse.headers?.location;\nif (!uploadUrl) {\n  throw new Error('❌ No upload URL in response. Headers: ' + JSON.stringify(initResponse.headers) + ' Body: ' + JSON.stringify(initResponse.body));\n}\n\nconsole.log('✅ Got upload URL');\n\n// Pass binary data through from Download Video\nconst binaryInput = $('Download Video').first().binary;\n\nreturn {\n  json: { uploadUrl },\n  binary: binaryInput\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        704
+      ],
+      "id": "de369a41-8fb0-4a8a-a4e1-5e9f83076e24",
+      "name": "YT: Initiate Upload (Long)"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $json.uploadUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "video/mp4"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        192,
+        704
+      ],
+      "id": "3c78732e-c254-4a9e-afa6-749a10e859e5",
+      "name": "YT: Upload Video (Long)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const uploadResult = $input.first().json;\nconst notionData = $('Extract Notion Data').first().json;\n\nif (!uploadResult.id) throw new Error('\\u274c YouTube upload failed: ' + JSON.stringify(uploadResult));\n\nconst isShort = notionData.contentType === 'Short Form';\nconst youtubeUrl = isShort\n  ? `https://youtube.com/shorts/${uploadResult.id}`\n  : `https://www.youtube.com/watch?v=${uploadResult.id}`;\n\nconsole.log('\\u2705 YouTube video uploaded (' + notionData.contentType + '):', uploadResult.id);\n\nreturn {\n  json: {\n    youtubeVideoId: uploadResult.id,\n    youtubeUrl,\n    youtubeTitle: notionData.pageTitle,\n    postedAt: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        704
+      ],
+      "id": "25d784c1-d423-4479-a32c-234ab451251f",
+      "name": "YT: Parse Response (Long)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/pages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Notion-Version",
+              "value": "={{ $('SET Variables').first().json.Notion_Version }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"parent\": { \"database_id\": $('SET Variables').first().json.NOTION_YT_MY_CONTENT_DB }, \"cover\": $('Extract Notion Data').first().json.thumbnailUrl ? { \"type\": \"external\", \"external\": { \"url\": $('Extract Notion Data').first().json.thumbnailUrl } } : undefined, \"properties\": { \"Caption\": { \"title\": [{ \"text\": { \"content\": $('Extract Notion Data').first().json.pageTitle || $('Extract Notion Data').first().json.caption.substring(0, 2000) } }] }, \"Video ID\": { \"rich_text\": [{ \"text\": { \"content\": $json.youtubeVideoId } }] }, \"URL\": { \"url\": $json.youtubeUrl }, \"Thumbnail URL\": { \"url\": $('Extract Notion Data').first().json.thumbnailUrl || null }, \"Post Date\": { \"date\": { \"start\": $json.postedAt } } } }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        640,
+        704
+      ],
+      "id": "3cffbefe-10fd-4190-9b04-b13f6e96ffa7",
+      "name": "Create YT My Content Page (Long)",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $('Extract Notion Data').first().json.pageId }}",
+          "mode": "id"
+        },
+        "simple": false,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Posted on YT|checkbox",
+              "checkboxValue": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        864,
+        704
+      ],
+      "id": "33fe33b7-d81c-4628-ae83-15d2e2d341c4",
+      "name": "Mark Posted on YT (Long)",
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "carouselFiles",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "id": "9be50fdf-5fec-434e-83a7-0db89f8c6b06",
+      "name": "Carousel: Split Out Images",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.carouselFiles.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "972cf7e7-230d-44f6-b295-db19d6290679",
+      "name": "Carousel: Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "={{ $('SET Variables').first().json.S3_BUCKET }}",
+        "fileName": "=carousels/{{ $('Extract Notion Data').first().json.pageId }}/slide_{{ $itemIndex }}.{{ $('Carousel: Split Out Images').all()[$itemIndex].json.carouselFiles.ext }}",
+        "additionalFields": {}
+      },
+      "id": "377060cc-a1b3-489e-b94a-0004198b6e0d",
+      "name": "Carousel: Upload to S3",
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        448,
+        128
+      ],
+      "credentials": {
+        "s3": {
+          "id": "REPLACE_ME",
+          "name": "[S3 / Cloudflare R2]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const idx = $itemIndex;\nconst ed = $('Extract Notion Data').first().json;\nconst vars = $('SET Variables').first().json;\nconst file = $('Carousel: Split Out Images').all()[idx].json.carouselFiles;\nconst ext = file.ext || 'png';\nconst isVideo = !!file.isVideo;\nconst fileName = `carousels/${ed.pageId}/slide_${idx}.${ext}`;\nconst publicImageUrl = `${vars.S3_PUBLIC_URL}/${fileName}`;\nconst childBody = isVideo\n  ? { media_type: 'VIDEO', video_url: publicImageUrl, is_carousel_item: true }\n  : { media_type: 'IMAGE', image_url: publicImageUrl, is_carousel_item: true };\nreturn {\n  pageId: ed.pageId,\n  index: idx,\n  publicImageUrl,\n  isVideo,\n  childBody,\n  caption: ed.caption,\n  thumbnailUrl: ed.thumbnailUrl,\n  pageUrl: ed.pageUrl,\n  pageTitle: ed.pageTitle,\n};"
+      },
+      "id": "c2b73412-be9d-44e3-8452-e6127b99d3ca",
+      "name": "Carousel: Build Image Public URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v24.0/{{ $('SET Variables').first().json.IG_ACCOUNT_ID }}/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.childBody) }}",
+        "options": {}
+      },
+      "id": "ba7b8608-9cd6-471a-931b-d17e9f615eac",
+      "name": "Carousel: Create Child Container",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        896,
+        128
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Meta Graph API — System User token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "id",
+              "renameField": true,
+              "outputFieldName": "childContainerIds"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5b72d8d3-c7b5-4e0a-af5d-2dd8f38d86c5",
+      "name": "Carousel: Aggregate Child IDs",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v24.0/{{ $('SET Variables').first().json.IG_ACCOUNT_ID }}/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"media_type\": \"CAROUSEL\",\n  \"children\": \"{{ $('Carousel: Aggregate Child IDs').first().json.childContainerIds.join(',') }}\",\n  \"caption\": {{ JSON.stringify($('Extract Notion Data').first().json.caption) }}\n}",
+        "options": {}
+      },
+      "id": "44b5ad9f-a9ab-4c2d-8e8e-bae954cf07c5",
+      "name": "Carousel: Create Carousel Container",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1376,
+        208
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Meta Graph API — System User token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "id": "baaf5559-f965-47e4-8245-5f39baba1a04",
+      "name": "Carousel: Wait 10 seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1616,
+        208
+      ],
+      "webhookId": "42d4653f-90ec-4db3-b51e-506d97248b38"
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v24.0/{{ $('Carousel: Create Carousel Container').item.json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "status_code"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0d8adcfa-cf36-4623-a6d1-648a2dddbb25",
+      "name": "Carousel: Check Upload Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1872,
+        208
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Meta Graph API — System User token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "status-check",
+              "leftValue": "={{ $json.status_code }}",
+              "rightValue": "FINISHED",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ab86f6f1-9213-4226-bb09-9603544eff0c",
+      "name": "Carousel: Is Upload Finished?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2112,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "id": "aa7ef0e6-4cfa-4054-8b54-33fa3f0927ee",
+      "name": "Carousel: Wait 15s and Retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2112,
+        -304
+      ],
+      "webhookId": "05cf186b-9370-4d62-adad-9c5012b25442"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v24.0/{{ $('SET Variables').first().json.IG_ACCOUNT_ID }}/media_publish",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "creation_id",
+              "value": "={{ $('Carousel: Create Carousel Container').item.json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5db93ad3-3049-4229-8961-e8f088913a49",
+      "name": "Carousel: Publish to Instagram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1568,
+        480
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Meta Graph API — System User token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v24.0/{{ $('Carousel: Publish to Instagram').item.json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,permalink"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4bfb1f5c-1c3f-4593-a61f-58dfb80a0bc7",
+      "name": "Carousel: Get Instagram URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1824,
+        480
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Meta Graph API — System User token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const igResult = $('Carousel: Publish to Instagram').first().json;\nconst igUrl = $('Carousel: Get Instagram URL').first().json;\nconst containerData = $('Carousel: Create Carousel Container').first().json;\n\nreturn {\n  json: {\n    instagramMediaId: igResult.id,\n    containerId: containerData.id,\n    instagramUrl: igUrl.permalink,\n    postedAt: new Date().toISOString(),\n  }\n};"
+      },
+      "id": "36a300c0-707d-44da-8c54-c036ba7baf89",
+      "name": "Carousel: IG Post Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2064,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/pages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Notion-Version",
+              "value": "={{ $('SET Variables').first().json.Notion_Version }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"parent\": { \"database_id\": $('SET Variables').first().json.NOTION_IG_MY_CONTENT_DB }, \"cover\": $('Extract Notion Data').first().json.thumbnailUrl ? { \"type\": \"external\", \"external\": { \"url\": $('Extract Notion Data').first().json.thumbnailUrl } } : undefined, \"properties\": { \"Caption\": { \"title\": [{ \"text\": { \"content\": $('Extract Notion Data').first().json.caption.substring(0, 2000) } }] }, \"Post ID\": { \"rich_text\": [{ \"text\": { \"content\": $json.instagramMediaId || '' } }] }, \"Container ID\": { \"rich_text\": [{ \"text\": { \"content\": $json.containerId || '' } }] }, \"URL\": { \"url\": $json.instagramUrl }, \"Thumbnail URL\": { \"url\": $('Extract Notion Data').first().json.thumbnailUrl || null }, \"Post Date\": { \"date\": { \"start\": $json.postedAt } } } }) }}",
+        "options": {}
+      },
+      "id": "2e04b624-0fad-43d9-b04a-884ba8de5115",
+      "name": "Carousel: Create IG My Content Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2320,
+        480
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $('Extract Notion Data').first().json.pageId }}",
+          "mode": "id"
+        },
+        "simple": false,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Posted on IG|checkbox",
+              "checkboxValue": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9429b83a-9a9a-4747-8d6c-75dd6d11c648",
+      "name": "Carousel: Mark Posted on IG",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        2576,
+        480
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $('Extract Notion Data').first().json.pageId }}",
+          "mode": "id"
+        },
+        "simple": false,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Posted on FB|checkbox",
+              "checkboxValue": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -464,
+        0
+      ],
+      "id": "b9cf4d00-4f4b-475b-956e-a2c15188c87a",
+      "name": "Carousel: Mark Posted on FB",
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst { exec } = require('child_process');\nconst util = require('util');\nconst execP = util.promisify(exec);\n\nconst meta = $('Extract Notion Data').first().json;\nconst inPath  = `/tmp/n8n_${meta.pageId}_in.mp4`;\nconst outPath = `/tmp/n8n_${meta.pageId}_out.mp4`;\n\nlet buffer = null;\ntry { buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); } catch (e) {}\nif (!buffer || buffer.length < 1024) {\n  // Input item lost its binary (came through the IG HTTP branch) — pull the\n  // file back from R2, where the IG branch just uploaded it.\n  const pubUrl = `${$('SET Variables').first().json.S3_PUBLIC_URL}/reels/instagram_${meta.pageId}.mp4`;\n  console.log('⬇️  Re-downloading from R2: ' + pubUrl);\n  const resp = await this.helpers.httpRequest({ url: pubUrl, encoding: 'arraybuffer', json: false });\n  buffer = Buffer.from(resp);\n}\nif (!buffer || buffer.length < 1024) {\n  throw new Error(`Binary buffer too small: ${buffer ? buffer.length : 'null'} bytes`);\n}\nfs.writeFileSync(inPath, buffer);\n\nlet codec = 'unknown';\ntry {\n  const probe = await execP(`ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 \"${inPath}\"`);\n  codec = probe.stdout.trim();\n} catch (e) {}\n\nconsole.log(`📹 codec=${codec} needsLetterbox=${meta.needsLetterbox}`);\n\nconst needsTranscode = codec !== 'h264';\nlet finalPath = inPath;\n\nif (meta.needsLetterbox) {\n  console.log('🎬 Letterboxing 16:9 → 9:16 + H.264');\n  await execP(`ffmpeg -y -i \"${inPath}\" -vf \"scale=1080:608:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1\" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k -movflags +faststart \"${outPath}\"`, { maxBuffer: 50*1024*1024 });\n  finalPath = outPath;\n} else if (needsTranscode) {\n  console.log('🎬 Transcoding HEVC→H.264');\n  await execP(`ffmpeg -y -i \"${inPath}\" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k -movflags +faststart \"${outPath}\"`, { maxBuffer: 50*1024*1024 });\n  finalPath = outPath;\n} else {\n  console.log('✅ Already H.264');\n}\n\nconst buf = fs.readFileSync(finalPath);\n\ntry { fs.unlinkSync(inPath); } catch (e) {}\nif (finalPath !== inPath) { try { fs.unlinkSync(outPath); } catch (e) {} }\n\nconst binaryData = await this.helpers.prepareBinaryData(buf, `${meta.pageId}.mp4`, 'video/mp4');\n\nreturn [{\n  json: $input.first().json,\n  binary: { data: binaryData }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        176
+      ],
+      "id": "0bb504b0-3e22-49ba-b60d-68d0974cb98c",
+      "name": "Maybe Letterbox"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "469514ca-3338-457d-9cd3-1ed1c2babc5e",
+              "leftValue": "={{ $json.status_code }}",
+              "rightValue": "EXPIRED",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "38351c05-4356-4080-b022-c1e9a99be799",
+              "leftValue": "={{ $runIndex }}",
+              "rightValue": 30,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "7b5d3b56-061e-4530-8705-b22005701f0a",
+      "name": "Status Errored?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        32,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "=Meta container status: {{ $json.status_code }} (id {{ $json.id }})"
+      },
+      "id": "48646cd6-f143-468c-a6ee-180bb8e8bcd8",
+      "name": "Stop on Container Error",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        224,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "943e012d-edbb-4ba3-b082-66e12fc9f53f",
+              "leftValue": "={{ $json.status_code }}",
+              "rightValue": "EXPIRED",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "31b7d9ec-1667-480f-9a2e-6eaad7ed62c8",
+              "leftValue": "={{ $runIndex }}",
+              "rightValue": 30,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "baa141ae-9264-45cd-8519-a9f89b88a38f",
+      "name": "Carousel: Status Errored?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1920,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "=Meta container status: {{ $json.status_code }} (id {{ $json.id }})"
+      },
+      "id": "4a0524c6-0d5b-4798-aec2-68c784aad7a3",
+      "name": "Carousel: Stop on Container Error",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2112,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 8
+      },
+      "id": "f366d170-721d-484c-9c13-10efba4918a4",
+      "name": "Carousel: Wait 8s (children)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1376,
+        420
+      ],
+      "webhookId": "f73dd43f-a368-452c-8e6e-d03de379ee28"
+    },
+    {
+      "id": "859f6df4-d1f3-4216-9ce9-e2fc119a6645",
+      "name": "Carousel: Check Children Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        420
+      ],
+      "parameters": {
+        "url": "https://graph.facebook.com/v24.0/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "ids",
+              "value": "={{ $('Carousel: Aggregate Child IDs').first().json.childContainerIds.join(',') }}"
+            },
+            {
+              "name": "fields",
+              "value": "status_code"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Meta Graph API — System User token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "id": "80b2c6fd-378b-4ea4-a735-c35be23b13b3",
+      "name": "Carousel: Children Finished?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1824,
+        420
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "children-finished",
+              "leftValue": "={{ Object.values($json).every(c => c && c.status_code === 'FINISHED') }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "03d3508b-5ae9-42bc-ab70-237fc4883d2b",
+      "name": "Carousel: Children Errored?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2048,
+        580
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "child-error",
+              "leftValue": "={{ Object.values($json).some(c => c && ['ERROR','EXPIRED'].includes(c.status_code)) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "child-retries",
+              "leftValue": "={{ $runIndex }}",
+              "rightValue": 30,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      }
+    },
+    {
+      "parameters": {
+        "errorMessage": "=Carousel child container failed or timed out: {{ JSON.stringify($json) }}"
+      },
+      "id": "c8d255e0-b6ee-40b7-be29-846ea0058b13",
+      "name": "Carousel: Stop on Child Error",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2272,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "id": "9ae6e516-d983-42ad-a408-6bd86b455e26",
+      "name": "Carousel: Wait 10s (children)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2272,
+        500
+      ],
+      "webhookId": "26605d3b-8853-482f-85a3-a93d5fc02917"
+    }
+  ],
+  "connections": {
+    "SET Variables": {
+      "main": [
+        [
+          {
+            "node": "Has Page ID?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Scheduled Posts": {
+      "main": [
+        [
+          {
+            "node": "Has Upload Date?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Upload Date?": {
+      "main": [
+        [
+          {
+            "node": "Is Due?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Due?": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Extract Notion Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Notion Data": {
+      "main": [
+        [
+          {
+            "node": "Type = Carousel?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Video": {
+      "main": [
+        [
+          {
+            "node": "Needs Instagram?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Instagram?": {
+      "main": [
+        [
+          {
+            "node": "Upload to S3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Needs YT Short?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to S3": {
+      "main": [
+        [
+          {
+            "node": "Build Public URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Public URL": {
+      "main": [
+        [
+          {
+            "node": "Create Media Container",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Media Container": {
+      "main": [
+        [
+          {
+            "node": "Wait 10 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 10 seconds": {
+      "main": [
+        [
+          {
+            "node": "Check Upload Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Upload Status": {
+      "main": [
+        [
+          {
+            "node": "Is Upload Finished?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Upload Finished?": {
+      "main": [
+        [
+          {
+            "node": "Publish to Instagram",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Status Errored?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 15s and Retry": {
+      "main": [
+        [
+          {
+            "node": "Check Upload Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish to Instagram": {
+      "main": [
+        [
+          {
+            "node": "Mark Posted on IG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Instagram URL": {
+      "main": [
+        [
+          {
+            "node": "IG Post Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IG Post Summary": {
+      "main": [
+        [
+          {
+            "node": "Create IG My Content Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create IG My Content Page": {
+      "main": [
+        [
+          {
+            "node": "Needs YT Short?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Posted on IG": {
+      "main": [
+        [
+          {
+            "node": "Mark Posted on FB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT: Initiate Upload": {
+      "main": [
+        [
+          {
+            "node": "YT: Upload Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT: Upload Video": {
+      "main": [
+        [
+          {
+            "node": "Mark Posted on YT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT: Parse Response": {
+      "main": [
+        [
+          {
+            "node": "Create YT My Content Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create YT My Content Page": {
+      "main": [
+        [
+          {
+            "node": "Needs YT Long?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Posted on YT": {
+      "main": [
+        [
+          {
+            "node": "YT: Parse Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Status → Posted": {
+      "main": [
+        [
+          {
+            "node": "Slack Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Notification": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook — Post Now": {
+      "main": [
+        [
+          {
+            "node": "SET Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Page ID?": {
+      "main": [
+        [
+          {
+            "node": "Get Single Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Scheduled Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Single Page": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Type = Carousel?": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Split Out Images",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Posted on FB": {
+      "main": [
+        [
+          {
+            "node": "Get Instagram URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs YT Short?": {
+      "main": [
+        [
+          {
+            "node": "Maybe Letterbox",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Needs YT Long?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs YT Long?": {
+      "main": [
+        [
+          {
+            "node": "YT: Initiate Upload (Long)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Status → Posted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT: Initiate Upload (Long)": {
+      "main": [
+        [
+          {
+            "node": "YT: Upload Video (Long)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT: Upload Video (Long)": {
+      "main": [
+        [
+          {
+            "node": "Mark Posted on YT (Long)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT: Parse Response (Long)": {
+      "main": [
+        [
+          {
+            "node": "Create YT My Content Page (Long)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create YT My Content Page (Long)": {
+      "main": [
+        [
+          {
+            "node": "Set Status → Posted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Posted on YT (Long)": {
+      "main": [
+        [
+          {
+            "node": "YT: Parse Response (Long)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Split Out Images": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Download Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Download Image": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Upload to S3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Upload to S3": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Build Image Public URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Build Image Public URL": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Create Child Container",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Create Child Container": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Aggregate Child IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Aggregate Child IDs": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Wait 8s (children)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Create Carousel Container": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Wait 10 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Wait 10 seconds": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Check Upload Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Check Upload Status": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Is Upload Finished?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Is Upload Finished?": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Publish to Instagram",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Carousel: Status Errored?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Wait 15s and Retry": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Check Upload Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Publish to Instagram": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Mark Posted on IG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Get Instagram URL": {
+      "main": [
+        [
+          {
+            "node": "Carousel: IG Post Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: IG Post Summary": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Create IG My Content Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Create IG My Content Page": {
+      "main": [
+        [
+          {
+            "node": "Set Status → Posted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Mark Posted on IG": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Mark Posted on FB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Mark Posted on FB": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Get Instagram URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule (8, 10, 12, 14, 16, 18)": {
+      "main": [
+        [
+          {
+            "node": "SET Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Errored?": {
+      "main": [
+        [
+          {
+            "node": "Stop on Container Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 15s and Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Status Errored?": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Stop on Container Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Carousel: Wait 15s and Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Maybe Letterbox": {
+      "main": [
+        [
+          {
+            "node": "YT: Initiate Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Wait 8s (children)": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Check Children Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Check Children Status": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Children Finished?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Children Finished?": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Create Carousel Container",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Carousel: Children Errored?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Children Errored?": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Stop on Child Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Carousel: Wait 10s (children)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carousel: Wait 10s (children)": {
+      "main": [
+        [
+          {
+            "node": "Carousel: Check Children Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "Europe/Oslo",
+    "timeSavedPerExecution": 60,
+    "errorWorkflow": "REPLACE_WITH_YOUR_ERROR_WORKFLOW_ID"
+  },
+  "pinData": {},
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

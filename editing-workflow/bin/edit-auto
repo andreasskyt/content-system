@@ -1,0 +1,137 @@
+#!/bin/bash
+set -euo pipefail
+
+PROJECT_ROOT="[EDITING_WORKFLOW_ROOT]"
+CONTENT_ROOT="[CONTENT_ROOT]"
+RAW_SHORT="$CONTENT_ROOT/Raw Videos/Short Form Raw"
+RAW_LONG="$CONTENT_ROOT/Raw Videos/Long Form Raw"
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
+
+notify() {
+  osascript -e "display notification \"$1\" with title \"BRAND Editor\"" 2>/dev/null || true
+}
+
+find_videos() {
+  find "$1" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.avi" -o -iname "*.mkv" -o -iname "*.webm" \) 2>/dev/null | sort
+}
+
+newest_video() {
+  find "$1" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.avi" -o -iname "*.mkv" -o -iname "*.webm" \) -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1
+}
+
+run_full() {
+  local video="$1"
+  local name=$(basename "$video")
+  echo ""
+  echo "═══════════════════════════════════════════════"
+  echo "  Processing: $name"
+  echo "═══════════════════════════════════════════════"
+  echo ""
+
+  # Run clipping pipeline
+  RESULT_LINE=""
+  capture_next=false
+  cd "$PROJECT_ROOT"
+  while IFS= read -r line; do
+    echo "$line"
+    if [[ "$capture_next" == true ]]; then
+      RESULT_LINE="$line"
+      capture_next=false
+    fi
+    if [[ "$line" == *"__RESULT__"* ]]; then
+      after="${line#*__RESULT__}"
+      after="${after# }"
+      if [[ -n "$after" && "$after" == "{"* ]]; then
+        RESULT_LINE="$after"
+      else
+        capture_next=true
+      fi
+    fi
+  done < <(npx tsx scripts/pipeline.ts "$video" 2>&1)
+
+  if [[ -z "$RESULT_LINE" ]]; then
+    echo "  ERROR: Pipeline failed for $name"
+    notify "Pipeline failed: $name"
+    return 1
+  fi
+
+  FOLDER=$(echo "$RESULT_LINE" | python3 -c "import sys,json; print(json.load(sys.stdin)['contentFolder'])")
+
+  # Run b-roll
+  echo ""
+  echo "  Running b-roll..."
+  cd "$PROJECT_ROOT" && npx tsx scripts/broll.ts "$FOLDER" 2>&1
+
+  # Open folder in Finder
+  open "$FOLDER"
+  notify "Edit complete: $name"
+  echo ""
+  echo "  ✓ Done: $name"
+  echo "  → $FOLDER"
+}
+
+# ── Commands ───────────────────────────────────────────────────────────────────
+
+case "${1:-}" in
+
+  next-short)
+    VIDEO=$(newest_video "$RAW_SHORT")
+    if [[ -z "$VIDEO" ]]; then
+      echo "  No videos in Raw Videos/Short Form Raw/"
+      notify "No short form videos to edit"
+      exit 0
+    fi
+    run_full "$VIDEO"
+    ;;
+
+  all-short)
+    mapfile -t VIDEOS < <(find_videos "$RAW_SHORT")
+    if [[ ${#VIDEOS[@]} -eq 0 ]]; then
+      echo "  No videos in Raw Videos/Short Form Raw/"
+      notify "No short form videos to edit"
+      exit 0
+    fi
+    echo "  Found ${#VIDEOS[@]} video(s) in Raw Videos/Short Form Raw/"
+    for video in "${VIDEOS[@]}"; do
+      run_full "$video"
+    done
+    notify "All short form videos edited (${#VIDEOS[@]})"
+    ;;
+
+  next-long)
+    VIDEO=$(newest_video "$RAW_LONG")
+    if [[ -z "$VIDEO" ]]; then
+      echo "  No videos in Raw Videos/Long Form Raw/"
+      notify "No long form videos to edit"
+      exit 0
+    fi
+    run_full "$VIDEO"
+    ;;
+
+  all-long)
+    mapfile -t VIDEOS < <(find_videos "$RAW_LONG")
+    if [[ ${#VIDEOS[@]} -eq 0 ]]; then
+      echo "  No videos in Raw Videos/Long Form Raw/"
+      notify "No long form videos to edit"
+      exit 0
+    fi
+    echo "  Found ${#VIDEOS[@]} video(s) in Raw Videos/Long Form Raw/"
+    for video in "${VIDEOS[@]}"; do
+      run_full "$video"
+    done
+    notify "All long form videos edited (${#VIDEOS[@]})"
+    ;;
+
+  *)
+    echo ""
+    echo "  BRAND Editor — Automated (Stream Deck)"
+    echo ""
+    echo "  Commands:"
+    echo "    edit-auto next-short    Edit newest video in Raw Videos/Short Form Raw/"
+    echo "    edit-auto all-short     Edit ALL videos in Raw Videos/Short Form Raw/"
+    echo "    edit-auto next-long     Edit newest video in Raw Videos/Long Form Raw/"
+    echo "    edit-auto all-long      Edit ALL videos in Raw Videos/Long Form Raw/"
+    echo ""
+    ;;
+esac

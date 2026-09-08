@@ -1,0 +1,4 @@
+{
+  "_doc": "History of comment keywords already used on own-video carousel CTAs. Each video gets its own row in the Comments to DM Config (the DM payload is the video link, different per video), so never reuse a keyword across videos. When picking a new keyword, exclude everything in used[].",
+  "used": []
+}

@@ -1,0 +1,86 @@
+#!/bin/bash
+set -euo pipefail
+
+# Resolve symlinks to find the real project root
+SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$0")"
+PROJECT_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+
+CONTENT_ROOT="[CONTENT_ROOT]"
+RAW_SHORT="$CONTENT_ROOT/Raw Videos/Short Form Raw"
+RAW_LONG="$CONTENT_ROOT/Raw Videos/Long Form Raw"
+
+# shellcheck source=_lib.sh
+source "$PROJECT_ROOT/bin/_lib.sh"
+
+echo ""
+echo "  ═══════════════════════════════════════════════"
+echo "   BRAND Subs Only — no editing, no b-roll"
+echo "  ═══════════════════════════════════════════════"
+echo ""
+echo "   Pick format:"
+echo "     [1] Short Form"
+echo "     [2] Long Form"
+echo ""
+read -p "   > " fmt_choice
+
+case "$fmt_choice" in
+  1) RAW_DIR="$RAW_SHORT"; LABEL="Short Form" ;;
+  2) RAW_DIR="$RAW_LONG"; LABEL="Long Form" ;;
+  *) echo ""; echo "   Invalid choice."; exit 1 ;;
+esac
+
+entries=()
+while IFS= read -r f; do
+  [[ -n "$f" ]] || continue
+  entries+=("$f")
+done < <(find "$RAW_DIR" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.avi" -o -iname "*.mkv" -o -iname "*.webm" \) 2>/dev/null | sort)
+
+if [[ ${#entries[@]} -eq 0 ]]; then
+  echo ""
+  echo "   No videos found in $RAW_DIR"
+  exit 1
+fi
+
+echo ""
+echo "  ═══════════════════════════════════════════════"
+echo "   $LABEL:"
+echo "  ═══════════════════════════════════════════════"
+echo ""
+for i in "${!entries[@]}"; do
+  name=$(basename "${entries[$i]}")
+  echo "     [$((i+1))] 🎬 $name"
+done
+echo ""
+read -p "   Pick [1-${#entries[@]}]: " choice
+
+if [[ -z "$choice" ]] || [[ "$choice" -lt 1 ]] || [[ "$choice" -gt ${#entries[@]} ]]; then
+  echo "   Invalid choice."
+  exit 1
+fi
+
+PICK="${entries[$((choice - 1))]}"
+NAME=$(basename "$PICK")
+
+pick_style "$PROJECT_ROOT"
+
+echo ""
+echo "  ═══════════════════════════════════════════════"
+echo "   Processing: $NAME  (style: $PICKED_STYLE)"
+echo "  ═══════════════════════════════════════════════"
+echo ""
+
+cd "$PROJECT_ROOT"
+npx tsx scripts/subs-raw.ts "$PICK"
+
+# Reveal the new content folder in Finder
+TITLE="${NAME%.*}"
+if [[ -d "$CONTENT_ROOT/$LABEL/$TITLE" ]]; then
+  save_style_to_folder "$CONTENT_ROOT/$LABEL/$TITLE"
+  open "$CONTENT_ROOT/$LABEL/$TITLE"
+fi
+
+echo ""
+echo "  ═══════════════════════════════════════════════"
+echo "   ✓ Done: $NAME"
+echo "  ═══════════════════════════════════════════════"
+echo ""

@@ -1,0 +1,1 @@
+Optional. Document your own funnel here (website, form, booking, CRM automations) so Claude can reason about CTAs and landing pages. See docs/ghl-comments-to-dm.md in the content-system repo for the organic comment-to-DM leg.

@@ -1,0 +1,11 @@
+.env*
+node_modules/
+.next/
+uploads/
+job-index.json
+public/renders/
+public/tmp-subs/
+
+# Local CLI-baseline recovery copy (see DISTRIBUTION_PLAN.md). Do not commit.
+_backup_cli_workflow/
+scripts/matte/PersonMatte

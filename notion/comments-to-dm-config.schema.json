@@ -1,0 +1,30 @@
+{
+  "title": "Comments to DM Config",
+  "description": "Keyword → DM routing for the GHL Instagram comment-to-DM system. One row per keyword/lead magnet. n8n reads this live: comment containing Keyword → DM Text sent as private reply ({{link}} is replaced with [WEBSITE_DOMAIN]/{Landing Slug}?utm_source=ig&utm_medium=dm&utm_campaign={Landing Slug}). Tag applied is kw-{keyword lowercase}, derived automatically. Only rows with Active checked are matched. Adding a new post/lead magnet = adding one row here. Never reuse a keyword across different lead magnets.",
+  "properties": {
+    "Active": {
+      "type": "checkbox",
+      "checkbox": {}
+    },
+    "DM Text": {
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Landing Slug": {
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Comment Reply": {
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Lead Magnet": {
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Keyword": {
+      "type": "title",
+      "title": {}
+    }
+  }
+}

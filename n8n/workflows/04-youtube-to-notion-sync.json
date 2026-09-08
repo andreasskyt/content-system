@@ -1,0 +1,1357 @@
+{
+  "name": "C: YouTube -> Notion Sync (Metrics + Transcripts)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "5f2ca18c-4be8-450a-8e4a-20465f898e99",
+      "name": "Daily 06:00 Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -3504,
+        -816
+      ],
+      "notes": "Kører dagligt kl. 06:00. Skift expression til '0 6 * * 1' for ugentlig (mandag)."
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet"
+            },
+            {
+              "name": "channelId",
+              "value": "={{ $json.MY_CHANNEL_ID }}"
+            },
+            {
+              "name": "type",
+              "value": "video"
+            },
+            {
+              "name": "order",
+              "value": "date"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            },
+            {
+              "name": "key",
+              "value": "={{ $json.YT_DATA_API_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e217186d-cafc-43cc-99c5-681456070c9d",
+      "name": "1. YouTube Search – Hent videoer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3056,
+        -816
+      ],
+      "notes": "Henter de seneste 50 videoer fra din kanal via YouTube Data API v3. VIGTIGT: Erstat 'DIT_CHANNEL_ID_HER' med dit faktiske channel ID, eller sæt det som variabel."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Saml alle video IDs fra search results\nconst items = $input.all();\nconst searchResults = items[0].json;\n\nif (!searchResults.items || searchResults.items.length === 0) {\n  return [{ json: { videoIds: '', videos: [], count: 0 } }];\n}\n\nconst videos = searchResults.items.map(item => ({\n  videoId: item.id.videoId,\n  title: item.snippet.title,\n  publishedAt: item.snippet.publishedAt,\n  description: item.snippet.description,\n  thumbnailUrl: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || ''\n}));\n\nconst videoIds = videos.map(v => v.videoId).join(',');\n\nreturn [{ json: { videoIds, videos, count: videos.length } }];"
+      },
+      "id": "c8f2a6ab-27e4-4307-a7f6-06cc332442fa",
+      "name": "2. Saml Video IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2832,
+        -816
+      ],
+      "notes": "Ekstraher alle video IDs til ét komma-separeret string + gem snippet data til senere brug."
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/videos",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "statistics,snippet,contentDetails"
+            },
+            {
+              "name": "id",
+              "value": "={{ $json.videoIds }}"
+            },
+            {
+              "name": "key",
+              "value": "={{ $('SET Variables').item.json.YT_DATA_API_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f60267eb-96db-477f-9c5e-77c4c91b114d",
+      "name": "3a. YouTube Data API – Statistics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3488,
+        -592
+      ],
+      "notes": "Henter views, likes, comments for alle videoer i ét batch call."
+    },
+    {
+      "parameters": {
+        "url": "https://youtubeanalytics.googleapis.com/v2/reports",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "ids",
+              "value": "channel==MINE"
+            },
+            {
+              "name": "startDate",
+              "value": "2020-01-01"
+            },
+            {
+              "name": "endDate",
+              "value": "={{ $now.format('yyyy-MM-dd') }}"
+            },
+            {
+              "name": "metrics",
+              "value": "estimatedMinutesWatched,subscribersGained"
+            },
+            {
+              "name": "dimensions",
+              "value": "video"
+            },
+            {
+              "name": "filters",
+              "value": "=video=={{ $('2. Saml Video IDs').item.json.videoIds.split(',').join(',') }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('3b-auth. Hent Access Token').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "35328cd0-39d2-42fb-8dec-f819ce7e0840",
+      "name": "3b. YouTube Analytics API – Watch Time, CTR, Subs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3072,
+        -592
+      ],
+      "notes": "Henter watch time, subscribers gained og CTR fra YouTube Analytics API. Kræver OAuth scope: yt-analytics.readonly"
+    },
+    {
+      "parameters": {
+        "jsCode": "const dataApiResponse = $('3a. YouTube Data API – Statistics').first().json;\nconst snippetData = $('2. Saml Video IDs').first().json.videos;\n\n// Parse Analytics API data\nconst analyticsMap = {};\ntry {\n  const analyticsResponse = $('3b. YouTube Analytics API – Watch Time, CTR, Subs').first().json;\n  if (analyticsResponse.rows) {\n    for (const row of analyticsResponse.rows) {\n      analyticsMap[row[0]] = {\n        watchTimeMinutes: row[1] || 0,\n        subscribersGained: row[2] || 0\n      };\n    }\n  }\n} catch (e) {\n  // Analytics API fejlede — fortsæt med 0-værdier\n}\n\n// Parse ISO 8601 duration\nfunction parseDuration(iso) {\n  if (!iso) return 0;\n  const match = iso.match(/PT(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?/);\n  if (!match) return 0;\n  const hours = parseInt(match[1] || '0');\n  const minutes = parseInt(match[2] || '0');\n  const seconds = parseInt(match[3] || '0');\n  return hours * 3600 + minutes * 60 + seconds;\n}\n\nconst statsMap = {};\nif (dataApiResponse.items) {\n  for (const item of dataApiResponse.items) {\n    const durationSeconds = parseDuration(item.contentDetails?.duration);\n    statsMap[item.id] = {\n      viewCount: parseInt(item.statistics.viewCount || '0'),\n      likeCount: parseInt(item.statistics.likeCount || '0'),\n      commentCount: parseInt(item.statistics.commentCount || '0'),\n      durationSeconds: durationSeconds,\n      aspectRatio: durationSeconds < 120 ? '9:16' : '16:9'\n    };\n  }\n}\n\nconst mergedVideos = snippetData.map(video => {\n  const stats = statsMap[video.videoId] || { viewCount: 0, likeCount: 0, commentCount: 0, durationSeconds: 0, aspectRatio: '16:9' };\n  const analytics = analyticsMap[video.videoId] || { watchTimeMinutes: 0, subscribersGained: 0 };\n\n  return {\n    json: {\n      videoId: video.videoId,\n      title: video.title,\n      publishedAt: video.publishedAt,\n      description: video.description,\n      thumbnailUrl: video.thumbnailUrl,\n      youtubeUrl: `https://youtube.com/watch?v=${video.videoId}`,\n      views: stats.viewCount,\n      likes: stats.likeCount,\n      comments: stats.commentCount,\n      watchTimeHours: Math.round((analytics.watchTimeMinutes / 60) * 100) / 100,\n      subscribersGained: analytics.subscribersGained,\n      ctrPercent: 0,\n      durationSeconds: stats.durationSeconds,\n      aspectRatio: stats.aspectRatio\n    }\n  };\n});\n\nreturn mergedVideos;"
+      },
+      "id": "90d808e2-fef8-4e23-9814-b012e732e4c4",
+      "name": "4. Merge Data + Analytics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2880,
+        -592
+      ],
+      "notes": "Samler statistics fra Data API og analytics fra Analytics API til ét objekt per video. Output: array af videoer med alle 6 metrics."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.notion.com/v1/databases/{{ $('SET Variables').item.json.NOTION_YT_MY_CONTENT_DB }}/query",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"filter\": { \"property\": \"Video ID\", \"rich_text\": { \"equals\": $json.videoId } } }) }}",
+        "options": {}
+      },
+      "id": "377733d9-3202-42c5-94d8-10336e0ef1a1",
+      "name": "5. Notion – Søg på Video ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3280,
+        -304
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[OpenAI API key (Header Auth: Authorization: Bearer <key>)]"
+        },
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst allVideos = $('4. Merge Data + Analytics').all();\n\nreturn items.map((item, index) => {\n  const notionResponse = item.json;\n  const currentVideo = allVideos[index].json;\n  \n  const found = notionResponse.results && notionResponse.results.length > 0;\n  \n  // Hent eksisterende Platforms fra Notion page\n  let existingPlatforms = [];\n  if (found && notionResponse.results[0].properties?.Platforms?.multi_select) {\n    existingPlatforms = notionResponse.results[0].properties.Platforms.multi_select.map(p => p.name);\n  }\n  \n  // Tilføj YouTube hvis den ikke allerede er der\n  if (!existingPlatforms.includes('YouTube')) {\n    existingPlatforms.push('YouTube');\n  }\n  \n  return {\n    json: {\n      matchType: found ? 'videoId' : 'none',\n      notionPageId: found ? notionResponse.results[0].id : null,\n      found: found,\n      platforms: existingPlatforms,\n      videoId: currentVideo.videoId,\n      title: currentVideo.title,\n      publishedAt: currentVideo.publishedAt,\n      description: currentVideo.description,\n      thumbnailUrl: currentVideo.thumbnailUrl,\n      youtubeUrl: currentVideo.youtubeUrl,\n      views: currentVideo.views,\n      likes: currentVideo.likes,\n      comments: currentVideo.comments,\n      watchTimeHours: currentVideo.watchTimeHours,\n      subscribersGained: currentVideo.subscribersGained,\n      durationSeconds: currentVideo.durationSeconds,\n      aspectRatio: currentVideo.aspectRatio\n    }\n  };\n});"
+      },
+      "id": "739378a4-4555-47b2-b6f1-e3b3efa302ca",
+      "name": "6. Evaluer Video ID Match",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3072,
+        -304
+      ],
+      "notes": "Tjekker om Notion returnerede et resultat for Video ID. Sætter found=true/false."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "found-check",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9e419c9a-25b4-4a52-983a-d83080d996bc",
+      "name": "7. IF – Fundet på Video ID?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2864,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.notion.com/v1/databases/{{ $('SET Variables').item.json.NOTION_YT_MY_CONTENT_DB }}/query",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"filter\": { \"property\": \"Caption\", \"title\": { \"equals\": $json.title } } }) }}",
+        "options": {}
+      },
+      "id": "1a9f1446-7e21-40a8-a22e-1776c604ab02",
+      "name": "8. Notion – Fallback: Søg på Titel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2640,
+        -208
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[OpenAI API key (Header Auth: Authorization: Bearer <key>)]"
+        },
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      },
+      "notes": "Fallback matching: Kun brugt hvis Video ID IKKE matchede. Søger exact title match. Erstat 'DIN_DATABASE_ID_HER'."
+    },
+    {
+      "parameters": {
+        "jsCode": "const notionResponses = $input.all();\nconst videoData = $('6. Evaluer Video ID Match').all().filter(item => !item.json.found);\n\nreturn notionResponses.map((item, index) => {\n  const video = videoData[index] ? videoData[index].json : {};\n  const notionResults = item.json.results || [];\n  const found = notionResults.length > 0;\n\n  return {\n    json: {\n      matchType: found ? 'title' : 'none',\n      notionPageId: found ? notionResults[0].id : null,\n      found: found,\n      videoId: video.videoId,\n      title: video.title,\n      publishedAt: video.publishedAt,\n      description: video.description,\n      thumbnailUrl: video.thumbnailUrl,\n      youtubeUrl: video.youtubeUrl,\n      views: video.views || 0,\n      likes: video.likes || 0,\n      comments: video.comments || 0,\n      watchTimeHours: video.watchTimeHours || 0,\n      subscribersGained: video.subscribersGained || 0,\n      ctrPercent: video.ctrPercent || 0,\n      durationSeconds: video.durationSeconds || 0,\n      aspectRatio: video.aspectRatio || '16:9'\n    }\n  };\n});"
+      },
+      "id": "46924e92-edc9-403e-9c17-0be18b03884a",
+      "name": "9. Evaluer Titel Match",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2416,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "title-found-check",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9f82b63d-e3c3-46b2-83b3-4bd493f42242",
+      "name": "10. IF – Fundet på Titel?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2176,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.notion.com/v1/pages/{{ $json.notionPageId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"cover\": { \"type\": \"external\", \"external\": { \"url\": $json.thumbnailUrl } }, \"properties\": { \"Views\": { \"number\": $json.views }, \"Watch Time\": { \"number\": $json.watchTimeHours }, \"Likes\": { \"number\": $json.likes }, \"Comments\": { \"number\": $json.comments }, \"Subscribers Gained\": { \"number\": $json.subscribersGained }, \"Thumbnail URL\": { \"url\": $json.thumbnailUrl }, \"Video ID\": { \"rich_text\": [{ \"text\": { \"content\": $json.videoId } }] }, \"URL\": { \"url\": $json.youtubeUrl } } }) }}",
+        "options": {}
+      },
+      "id": "d6d11913-9cd9-4f41-a5b1-9ce0b1a659ae",
+      "name": "11. Notion – Opdater Metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2640,
+        -544
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[OpenAI API key (Header Auth: Authorization: Bearer <key>)]"
+        },
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      },
+      "notes": "Opdaterer eksisterende Notion page med nye metrics. Backfiller også Video ID og URL hvis de mangler (titel-match scenario)."
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.notion.com/v1/pages/{{ $json.notionPageId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"cover\": { \"type\": \"external\", \"external\": { \"url\": $json.thumbnailUrl } }, \"properties\": { \"Views\": { \"number\": $json.views }, \"Watch Time\": { \"number\": $json.watchTimeHours }, \"Likes\": { \"number\": $json.likes }, \"Comments\": { \"number\": $json.comments }, \"Subscribers Gained\": { \"number\": $json.subscribersGained }, \"Thumbnail URL\": { \"url\": $json.thumbnailUrl }, \"Video ID\": { \"rich_text\": [{ \"text\": { \"content\": $json.videoId } }] }, \"URL\": { \"url\": $json.youtubeUrl } } }) }}",
+        "options": {}
+      },
+      "id": "a37a9c23-a6e4-4c09-a949-5e5e3fc8eb4b",
+      "name": "12. Notion – Opdater (Titel Match + Backfill ID)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1936,
+        -352
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[OpenAI API key (Header Auth: Authorization: Bearer <key>)]"
+        },
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      },
+      "notes": "Samme som node 11, men for titel-matches. Backfiller Video ID så næste sync matcher på ID."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/pages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"parent\": { \"database_id\": $('SET Variables').first().json.NOTION_YT_MY_CONTENT_DB }, \"cover\": { \"type\": \"external\", \"external\": { \"url\": $json.thumbnailUrl } }, \"properties\": { \"Caption\": { \"title\": [{ \"text\": { \"content\": $json.title } }] }, \"Video ID\": { \"rich_text\": [{ \"text\": { \"content\": $json.videoId } }] }, \"URL\": { \"url\": $json.youtubeUrl }, \"Thumbnail URL\": { \"url\": $json.thumbnailUrl }, \"Post Date\": { \"date\": { \"start\": $json.publishedAt } }, \"Views\": { \"number\": $json.views }, \"Watch Time\": { \"number\": $json.watchTimeHours }, \"Likes\": { \"number\": $json.likes }, \"Comments\": { \"number\": $json.comments }, \"Subscribers Gained\": { \"number\": $json.subscribersGained } } }) }}",
+        "options": {}
+      },
+      "id": "525a26fb-7db7-479d-9a96-8e5edb6f52c0",
+      "name": "13. Notion – Opret Ny Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1936,
+        -48
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[OpenAI API key (Header Auth: Authorization: Bearer <key>)]"
+        },
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      },
+      "notes": "Opretter ny content page i Notion med alle properties og metrics. VIGTIGT: Erstat 'DIN_DATABASE_ID_HER' med dit Notion database ID."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "701bf8f4-483b-4665-a165-0282b422b370",
+              "name": "MY_CHANNEL_ID",
+              "value": "[YT_CHANNEL_ID]",
+              "type": "string"
+            },
+            {
+              "id": "bb8a2ba0-a2b1-4d70-bf98-7e9783adb5e1",
+              "name": "NOTION_CONTENT_PRODUCTION_DB",
+              "value": "[NOTION_CPP_DB_ID]",
+              "type": "string"
+            },
+            {
+              "id": "3912405d-71f6-423f-92c0-492bb91d1637",
+              "name": "NOTION_YT_MY_CONTENT_DB",
+              "value": "[NOTION_YT_MY_CONTENT_DB_ID]",
+              "type": "string"
+            },
+            {
+              "id": "318b1b79-533e-47d8-ad1f-a1d675f37c87",
+              "name": "YT_DATA_API_KEY",
+              "value": "[YT_DATA_API_KEY]",
+              "type": "string"
+            },
+            {
+              "id": "bee4c1f8-a189-4cc3-829a-3e1f02917b54",
+              "name": "YT_OAUTH_CLIENT_ID",
+              "value": "[YT_OAUTH_CLIENT_ID]",
+              "type": "string"
+            },
+            {
+              "id": "bdfa7b57-4987-46f3-822f-0fd73aeec0bd",
+              "name": "YT_OAUTH_CLIENT_SECRET",
+              "value": "[YT_OAUTH_CLIENT_SECRET]",
+              "type": "string"
+            },
+            {
+              "id": "4f0f3c2d-49e4-4cc7-b1ae-3c57d8a0f505",
+              "name": "YT_OAUTH_REFRESH_TOKEN",
+              "value": "[YT_OAUTH_REFRESH_TOKEN]",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3280,
+        -816
+      ],
+      "id": "e1f8d1ff-b616-44ed-986a-e13f586e2ba3",
+      "name": "SET Variables"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://oauth2.googleapis.com/token",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "refresh_token"
+            },
+            {
+              "name": "client_id",
+              "value": "={{ $('SET Variables').first().json.YT_OAUTH_CLIENT_ID }}"
+            },
+            {
+              "name": "client_secret",
+              "value": "={{ $('SET Variables').first().json.YT_OAUTH_CLIENT_SECRET }}"
+            },
+            {
+              "name": "refresh_token",
+              "value": "={{ $('SET Variables').first().json.YT_OAUTH_REFRESH_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "29ff41a0-d431-4218-a576-74133b7e4b47",
+      "name": "3b-auth. Hent Access Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3280,
+        -592
+      ],
+      "notes": "Henter watch time, subscribers gained og CTR fra YouTube Analytics API. Kræver OAuth scope: yt-analytics.readonly"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "[SLACK_CHANNEL_ID]",
+          "mode": "list",
+          "cachedResultName": "content"
+        },
+        "text": "=✅ *YouTube Metrics Sync Complete*\n━━━━━━━━━━━━━━━━━━\n📊 All YouTube content metrics updated in Notion.\n🕐 {{ $now.format('DD – HH:mm') }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        -2416,
+        -544
+      ],
+      "id": "03d2e4e4-d443-428f-883f-28bd1eafd34e",
+      "name": "Slack – YT Sync Done",
+      "webhookId": "90310c88-4106-47ee-b185-8e1e276030ec",
+      "executeOnce": true,
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_ME",
+          "name": "[Slack Bot]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "[SLACK_CHANNEL_ID]",
+          "mode": "list",
+          "cachedResultName": "content"
+        },
+        "text": "=✅ *YouTube Metrics Sync Complete*\n━━━━━━━━━━━━━━━━━━\n📊 All YouTube content metrics updated in Notion.\n🕐 {{ $now.format('DD – HH:mm') }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        -1728,
+        -352
+      ],
+      "id": "e0b4f925-6f3b-4d00-99ef-2173603c11d2",
+      "name": "Slack – YT Sync Done1",
+      "webhookId": "90310c88-4106-47ee-b185-8e1e276030ec",
+      "executeOnce": true,
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_ME",
+          "name": "[Slack Bot]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "[SLACK_CHANNEL_ID]",
+          "mode": "list",
+          "cachedResultName": "content"
+        },
+        "text": "=✅ *YouTube Metrics Sync Complete*\n━━━━━━━━━━━━━━━━━━\n📊 All YouTube content metrics updated in Notion.\n🕐 {{ $now.format('DD – HH:mm') }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        -1728,
+        -48
+      ],
+      "id": "f07e097a-817c-4624-a42e-e928f101208d",
+      "name": "Slack – YT Sync Done2",
+      "webhookId": "90310c88-4106-47ee-b185-8e1e276030ec",
+      "executeOnce": true,
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_ME",
+          "name": "[Slack Bot]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2096,
+        -1152
+      ],
+      "id": "a7638d5f-a8dc-43e2-b135-2ad66c99978a",
+      "name": "Daily 07:00 Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Notion results and extract page IDs + video IDs\nconst results = $input.first().json.results || [];\n\nif (results.length === 0) {\n  console.log('✅ Alle YouTube pages har allerede transcript');\n  return []; // Stop workflow\n}\n\nconsole.log(`📋 Fandt ${results.length} pages uden transcript`);\n\nreturn results.map(page => {\n  const videoId = (page.properties?.['Video ID']?.rich_text || [])\n    .map(t => t.plain_text).join('').trim();\n  \n  const title = (page.properties?.['Caption']?.title || [])\n    .map(t => t.plain_text).join('').trim();\n\n  return {\n    json: {\n      pageId: page.id,\n      videoId,\n      title\n    }\n  };\n}).filter(item => item.json.videoId);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2096,
+        -928
+      ],
+      "id": "2c069c17-195c-41c0-aa8d-2617a2ebe535",
+      "name": "2. Parse Pages"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.notion.com/v1/blocks/{{ $json.pageId }}/children",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2080,
+        -688
+      ],
+      "id": "27b530e4-92e0-4add-937c-028de48f6071",
+      "name": "6. Notion – Append Transcript",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[OpenAI API key (Header Auth: Authorization: Bearer <key>)]"
+        },
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "[SLACK_CHANNEL_ID]",
+          "mode": "list",
+          "cachedResultName": "content"
+        },
+        "text": "=📜 *YT Transcript Sync done*\nTranscript added to: *{{ $('5. Build Notion Toggle Block').item.json.title }}*\n({{ $('5. Build Notion Toggle Block').item.json.transcriptLength }} characters, {{ $('5. Build Notion Toggle Block').item.json.chunkCount }} chunks)",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        -1648,
+        -688
+      ],
+      "id": "ce8cc066-95f6-4123-b09b-3ee291b06d0e",
+      "name": "Slack – Transcript Done",
+      "webhookId": "f4c79b44-617a-40f1-b0cb-25e75c42dc49",
+      "executeOnce": true,
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_ME",
+          "name": "[Slack Bot]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "var-db",
+              "name": "NOTION_CONTENT_DB",
+              "value": "[NOTION_CPP_DB_ID]",
+              "type": "string"
+            },
+            {
+              "id": "98316d56-c8b4-4768-83fe-6d4c83b54b41",
+              "name": "NOTION_YT_MY_CONTENT_DB",
+              "value": "[NOTION_YT_MY_CONTENT_DB_ID]",
+              "type": "string"
+            },
+            {
+              "id": "44167b6b-05c4-41eb-a64d-f46c23843d67",
+              "name": "YT_DATA_API_KEY",
+              "value": "[YT_DATA_API_KEY]",
+              "type": "string"
+            },
+            {
+              "id": "782c198d-2b5b-483c-bc2d-0faab5bd67eb",
+              "name": "YT_OAUTH_CLIENT_ID",
+              "value": "[YT_OAUTH_CLIENT_ID]",
+              "type": "string"
+            },
+            {
+              "id": "b306bfaf-c35b-4be4-9664-afb9e7894726",
+              "name": "YT_OAUTH_CLIENT_SECRET",
+              "value": "[YT_OAUTH_CLIENT_SECRET]",
+              "type": "string"
+            },
+            {
+              "id": "e6e4f2e7-2c33-4c02-9faa-4ce341c93e87",
+              "name": "YT_OAUTH_REFRESH_TOKEN",
+              "value": "[YT_OAUTH_REFRESH_TOKEN]",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1872,
+        -1152
+      ],
+      "id": "12835b6d-20fa-4bcd-abb1-d31200b3713c",
+      "name": "SET Variables1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.notion.com/v1/databases/{{ $('SET Variables1').item.json.NOTION_YT_MY_CONTENT_DB }}/query",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"filter\": { \"and\": [ { \"property\": \"Video ID\", \"rich_text\": { \"is_not_empty\": true } }, { \"property\": \"Has Transcript\", \"checkbox\": { \"equals\": false } } ] } }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1424,
+        -1152
+      ],
+      "id": "8ac74863-0fdd-49ac-8cd2-1646e932ba48",
+      "name": "1. Notion – Get all youtube videos w/o transcript",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[OpenAI API key (Header Auth: Authorization: Bearer <key>)]"
+        },
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://oauth2.googleapis.com/token",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "refresh_token"
+            },
+            {
+              "name": "client_id",
+              "value": "={{ $('SET Variables1').first().json.YT_OAUTH_CLIENT_ID }}"
+            },
+            {
+              "name": "client_secret",
+              "value": "={{ $('SET Variables1').first().json.YT_OAUTH_CLIENT_SECRET }}"
+            },
+            {
+              "name": "refresh_token",
+              "value": "={{ $('SET Variables1').first().json.YT_OAUTH_REFRESH_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a99ea6e6-eafc-47bd-9bc9-da55ef092c8d",
+      "name": "0. Get Access Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1648,
+        -1152
+      ],
+      "notes": "Henter watch time, subscribers gained og CTR fra YouTube Analytics API. Kræver OAuth scope: yt-analytics.readonly"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const videoId = $json.videoId;\nconst pageId = $json.pageId;\nconst title = $json.title;\nconst accessToken = $('0. Get Access Token').first().json.access_token;\n\nconsole.log(`🎬 Henter transcript for: ${title} (${videoId})`);\n\ntry {\n  // List caption tracks\n  const captionList = await this.helpers.httpRequest({\n    method: 'GET',\n    url: 'https://www.googleapis.com/youtube/v3/captions',\n    qs: { part: 'snippet', videoId: videoId },\n    headers: { 'Authorization': `Bearer ${accessToken}` }\n  });\n\n  const tracks = captionList.items || [];\n  console.log(`📋 Caption tracks: ${tracks.length}`);\n\n  if (tracks.length === 0) {\n    return { json: { pageId, videoId, title, transcript: null, error: 'No caption tracks' } };\n  }\n\n  // Prioriter: English ASR > Danish ASR > English manual > first\n  let track = tracks.find(t => t.snippet.trackKind === 'ASR' && t.snippet.language === 'en')\n    || tracks.find(t => t.snippet.trackKind === 'ASR' && t.snippet.language === 'da')\n    || tracks.find(t => t.snippet.language === 'en')\n    || tracks.find(t => t.snippet.language === 'da')\n    || tracks[0];\n\n  console.log(`🎯 Track: ${track.snippet.language} (${track.snippet.trackKind})`);\n\n  // Download caption som SRT\n  const captionSrt = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `https://www.googleapis.com/youtube/v3/captions/${track.id}`,\n    qs: { tfmt: 'srt' },\n    headers: { 'Authorization': `Bearer ${accessToken}` }\n  });\n\n  // Parse SRT\n  const blocks = String(captionSrt).split(/\\n\\n+/);\n  let transcriptLines = [];\n  let plainTextLines = [];\n\n  for (const block of blocks) {\n    const lines = block.trim().split('\\n');\n    if (lines.length < 3) continue;\n\n    const timeMatch = lines[1].match(/(\\d{2}):(\\d{2}):(\\d{2})/);\n    if (!timeMatch) continue;\n\n    const hours = parseInt(timeMatch[1]);\n    const minutes = parseInt(timeMatch[2]) + (hours * 60);\n    const seconds = parseInt(timeMatch[3]);\n    const timestamp = `${minutes}:${seconds.toString().padStart(2, '0')}`;\n\n    const text = lines.slice(2).join(' ').trim();\n    if (!text) continue;\n\n    transcriptLines.push(`[${timestamp}] ${text}`);\n    plainTextLines.push(text);\n  }\n\n  if (transcriptLines.length === 0) {\n    return { json: { pageId, videoId, title, transcript: null, error: 'SRT parsed but empty' } };\n  }\n\n  const transcriptWithTimestamps = transcriptLines.join('\\n');\n  const transcriptPlain = plainTextLines.join(' ');\n\n  console.log(`✅ Transcript: ${transcriptLines.length} linjer, ${transcriptPlain.length} tegn`);\n\n  return {\n    json: {\n      pageId, videoId, title,\n      transcript: transcriptWithTimestamps,\n      transcriptPlain,\n      transcriptLength: transcriptPlain.length,\n      language: track.snippet.language,\n      isAutoGenerated: track.snippet.trackKind === 'ASR',\n      error: null\n    }\n  };\n\n} catch (err) {\n  console.log(`❌ Fejl: ${err.message}`);\n  return { json: { pageId, videoId, title, transcript: null, error: err.message } };\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1872,
+        -928
+      ],
+      "id": "d09539c1-c887-4498-a185-c72e18d63755",
+      "name": "3. Get YT Transcript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-transcript",
+              "leftValue": "={{ $json.transcript }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -1648,
+        -928
+      ],
+      "id": "1ec8b767-4314-4677-906f-785d742d25fe",
+      "name": "4. Has Transcript?"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Byg Notion API body til at appende transcript som toggle block\nconst pageId = $json.pageId;\nconst transcript = $json.transcript;\nconst title = $json.title;\nconst language = $json.language;\nconst isAuto = $json.isAutoGenerated;\n\n// Split transcript i chunks af max 2000 tegn (Notion rich_text grænse per block)\nconst maxChunkSize = 1900; // Lidt under 2000 for sikkerhed\nconst lines = transcript.split('\\n');\nlet chunks = [];\nlet currentChunk = '';\n\nfor (const line of lines) {\n  if ((currentChunk + '\\n' + line).length > maxChunkSize && currentChunk) {\n    chunks.push(currentChunk.trim());\n    currentChunk = line;\n  } else {\n    currentChunk = currentChunk ? currentChunk + '\\n' + line : line;\n  }\n}\nif (currentChunk.trim()) {\n  chunks.push(currentChunk.trim());\n}\n\nconsole.log(`📝 Transcript splittet i ${chunks.length} chunks for Notion`);\n\n// Byg children blocks til toggle\n// Hvert chunk bliver et paragraph block inde i toggle\nconst children = chunks.map(chunk => ({\n  object: 'block',\n  type: 'paragraph',\n  paragraph: {\n    rich_text: [{\n      type: 'text',\n      text: { content: chunk }\n    }]\n  }\n}));\n\n// Heading text med metadata\nconst langLabel = language === 'da' ? 'Dansk' : language === 'en' ? 'English' : language;\nconst autoLabel = isAuto ? ' (auto-generated)' : '';\nconst toggleTitle = `📜 Video Transcript — ${langLabel}${autoLabel}`;\n\n// Notion append blocks body\nconst body = {\n  children: [\n    {\n      object: 'block',\n      type: 'toggle',\n      toggle: {\n        rich_text: [{\n          type: 'text',\n          text: { content: toggleTitle },\n          annotations: { bold: true }\n        }],\n        children: children\n      }\n    }\n  ]\n};\n\nreturn {\n  json: {\n    pageId,\n    title,\n    body,\n    chunkCount: chunks.length,\n    transcriptLength: transcript.length\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1424,
+        -928
+      ],
+      "id": "7a931e05-242e-41e8-a8fa-0e9fa6331ffe",
+      "name": "5. Build Notion Toggle Block"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.notion.com/v1/pages/{{ $('5. Build Notion Toggle Block').item.json.pageId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"properties\": { \"Has Transcript\": { \"checkbox\": true } } }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1872,
+        -688
+      ],
+      "id": "794c94a2-a63c-4e19-a88b-4b050bfa5708",
+      "name": "7. Mark \"Has Transcript\" in Notion",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[OpenAI API key (Header Auth: Authorization: Bearer <key>)]"
+        },
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily 06:00 Trigger": {
+      "main": [
+        [
+          {
+            "node": "SET Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. YouTube Search – Hent videoer": {
+      "main": [
+        [
+          {
+            "node": "2. Saml Video IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Saml Video IDs": {
+      "main": [
+        [
+          {
+            "node": "3a. YouTube Data API – Statistics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3a. YouTube Data API – Statistics": {
+      "main": [
+        [
+          {
+            "node": "3b-auth. Hent Access Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3b. YouTube Analytics API – Watch Time, CTR, Subs": {
+      "main": [
+        [
+          {
+            "node": "4. Merge Data + Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Merge Data + Analytics": {
+      "main": [
+        [
+          {
+            "node": "5. Notion – Søg på Video ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Notion – Søg på Video ID": {
+      "main": [
+        [
+          {
+            "node": "6. Evaluer Video ID Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Evaluer Video ID Match": {
+      "main": [
+        [
+          {
+            "node": "7. IF – Fundet på Video ID?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7. IF – Fundet på Video ID?": {
+      "main": [
+        [
+          {
+            "node": "11. Notion – Opdater Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "8. Notion – Fallback: Søg på Titel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8. Notion – Fallback: Søg på Titel": {
+      "main": [
+        [
+          {
+            "node": "9. Evaluer Titel Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "9. Evaluer Titel Match": {
+      "main": [
+        [
+          {
+            "node": "10. IF – Fundet på Titel?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10. IF – Fundet på Titel?": {
+      "main": [
+        [
+          {
+            "node": "12. Notion – Opdater (Titel Match + Backfill ID)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "13. Notion – Opret Ny Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "11. Notion – Opdater Metrics": {
+      "main": [
+        [
+          {
+            "node": "Slack – YT Sync Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12. Notion – Opdater (Titel Match + Backfill ID)": {
+      "main": [
+        [
+          {
+            "node": "Slack – YT Sync Done1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13. Notion – Opret Ny Page": {
+      "main": [
+        [
+          {
+            "node": "Slack – YT Sync Done2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET Variables": {
+      "main": [
+        [
+          {
+            "node": "1. YouTube Search – Hent videoer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3b-auth. Hent Access Token": {
+      "main": [
+        [
+          {
+            "node": "3b. YouTube Analytics API – Watch Time, CTR, Subs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily 07:00 Trigger": {
+      "main": [
+        [
+          {
+            "node": "SET Variables1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Parse Pages": {
+      "main": [
+        [
+          {
+            "node": "3. Get YT Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Notion – Append Transcript": {
+      "main": [
+        [
+          {
+            "node": "7. Mark \"Has Transcript\" in Notion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET Variables1": {
+      "main": [
+        [
+          {
+            "node": "0. Get Access Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Notion – Get all youtube videos w/o transcript": {
+      "main": [
+        [
+          {
+            "node": "2. Parse Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0. Get Access Token": {
+      "main": [
+        [
+          {
+            "node": "1. Notion – Get all youtube videos w/o transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Get YT Transcript": {
+      "main": [
+        [
+          {
+            "node": "4. Has Transcript?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Has Transcript?": {
+      "main": [
+        [
+          {
+            "node": "5. Build Notion Toggle Block",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Build Notion Toggle Block": {
+      "main": [
+        [
+          {
+            "node": "6. Notion – Append Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7. Mark \"Has Transcript\" in Notion": {
+      "main": [
+        [
+          {
+            "node": "Slack – Transcript Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed",
+    "timezone": "Europe/Oslo",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedPerExecution": 70,
+    "errorWorkflow": "REPLACE_WITH_YOUR_ERROR_WORKFLOW_ID"
+  },
+  "pinData": {},
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

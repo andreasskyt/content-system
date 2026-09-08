@@ -1,0 +1,20 @@
+[
+  {
+    "file": "desk-laptop.jpg",
+    "desc": "sitting at a desk with a laptop, looking at camera, plain wall behind",
+    "tags": ["work", "desk", "face", "clean"],
+    "focal": "left",
+    "text_space": "right half over plain wall, white ink",
+    "grade": "A",
+    "orientation": "portrait"
+  },
+  {
+    "file": "train-window.jpg",
+    "desc": "working on a laptop on a train, side profile, window light",
+    "tags": ["travel", "work", "moody"],
+    "focal": "right",
+    "text_space": "top third over window, white ink",
+    "grade": "B",
+    "orientation": "landscape"
+  }
+]

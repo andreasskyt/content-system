@@ -1,0 +1,611 @@
+{
+  "name": "2. Story Auto-Poster",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "story-now",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "742258db-b71e-4f17-8b80-a61ee8b2fc5a",
+      "name": "Webhook — Story Now",
+      "webhookId": "2fcae3b5-b7fb-4ef4-ad1a-25b7446599ee"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "igid",
+              "name": "IG_ACCOUNT_ID",
+              "value": "[IG_ACCOUNT_ID]",
+              "type": "string"
+            },
+            {
+              "id": "s3",
+              "name": "S3_BUCKET",
+              "value": "[S3_BUCKET]",
+              "type": "string"
+            },
+            {
+              "id": "s3pub",
+              "name": "S3_PUBLIC_URL",
+              "value": "https://[S3_PUBLIC_HOST]",
+              "type": "string"
+            },
+            {
+              "id": "slack",
+              "name": "SLACK_CHANNEL",
+              "value": "[SLACK_CHANNEL_ID]",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "1c9bfed5-f4c8-4285-8247-ca3d1ec2c7fb",
+      "name": "SET Variables"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "get",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $('Webhook — Story Now').first().json.body.pageId }}",
+          "mode": "id"
+        },
+        "simple": false
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "3c2331b9-4aaf-4c60-84f1-87bed0fcfe86",
+      "name": "Get Story Page",
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const notion = $input.first().json;\nconst props = notion.properties || {};\nconst type = props['Type']?.select?.name || '';\nif (type !== 'Story') throw new Error('Page Type is \"' + type + '\", expected \"Story\"');\nconst titleBlocks = props['Title']?.title || [];\nconst pageTitle = titleBlocks.map(b => b.plain_text || '').join('').trim();\nconst files = (props['Stories Media']?.files || [])\n  .map(f => ({ name: f.name || '', url: f.file?.url || f.external?.url }))\n  .filter(f => f.url);\nif (!files.length) throw new Error('No files attached in \"Stories Media\"');\nfiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));\nreturn [{ json: { pageId: notion.id, pageTitle, storyFiles: files.map(f => f.url), frameCount: files.length } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "6fce4ce6-4028-4f65-bfb3-0e804c67b609",
+      "name": "Extract Story Data"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "storyFiles",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        832,
+        0
+      ],
+      "id": "76d1d336-1163-4564-b9b7-c74c5562a77b",
+      "name": "Split Out Frames"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.storyFiles }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "fa77015b-b5bd-40fd-a081-e01e4e9a0846",
+      "name": "Download Frame"
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "={{ $('SET Variables').first().json.S3_BUCKET }}",
+        "fileName": "=stories/{{ $('Extract Story Data').first().json.pageId }}/frame_{{ String($itemIndex + 1).padStart(2, '0') }}.png",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        1248,
+        0
+      ],
+      "id": "57e19d8a-4ade-4c6d-920b-04ae0ca61450",
+      "name": "Upload Frame to S3",
+      "credentials": {
+        "s3": {
+          "id": "REPLACE_ME",
+          "name": "[S3 / Cloudflare R2]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const idx = $itemIndex;\nconst ed = $('Extract Story Data').first().json;\nconst vars = $('SET Variables').first().json;\nconst fileName = `stories/${ed.pageId}/frame_${String(idx + 1).padStart(2, '0')}.png`;\nreturn { json: { pageId: ed.pageId, pageTitle: ed.pageTitle, index: idx, frameCount: ed.frameCount, publicImageUrl: `${vars.S3_PUBLIC_URL}/${fileName}` } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        0
+      ],
+      "id": "d4684915-e8db-49a6-a6d1-5bb80b6fcc4e",
+      "name": "Build Frame URL"
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1664,
+        0
+      ],
+      "id": "c9b4c28e-eca2-41dd-aac8-8af677714193",
+      "name": "Loop Frames"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v24.0/{{ $('SET Variables').first().json.IG_ACCOUNT_ID }}/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"media_type\": \"STORIES\",\n  \"image_url\": \"{{ $json.publicImageUrl }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1872,
+        160
+      ],
+      "id": "5104fa83-708e-48a8-9200-eac3cdc49b3e",
+      "name": "Create Story Container",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Meta Graph API — System User token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2080,
+        160
+      ],
+      "id": "c7864011-8dce-4623-b88f-c71c6a3a7334",
+      "name": "Wait 10s",
+      "webhookId": "64c2df76-09a6-405d-8a5c-b8db82cb0dba"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v24.0/{{ $('SET Variables').first().json.IG_ACCOUNT_ID }}/media_publish",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "creation_id",
+              "value": "={{ $('Create Story Container').item.json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2288,
+        160
+      ],
+      "id": "2f4304af-385a-463d-997d-8699f24f792b",
+      "name": "Publish Story Frame",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "[Meta Graph API — System User token (Header Auth: Authorization: Bearer <token>)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $('Extract Story Data').first().json.pageId }}",
+          "mode": "id"
+        },
+        "simple": false,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Status|status",
+              "statusValue": "Posted"
+            },
+            {
+              "key": "Posted on IG|checkbox",
+              "checkboxValue": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1872,
+        -160
+      ],
+      "id": "c3f45bc1-9679-4aec-ba9a-2c08b2e3be09",
+      "name": "Mark Story Posted",
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "[SLACK_CHANNEL_ID]",
+          "mode": "id"
+        },
+        "text": "=:camera_with_flash: *Story posted to Instagram*\n*{{ $('Extract Story Data').first().json.pageTitle }}* — {{ $('Extract Story Data').first().json.frameCount }} frames, in order.",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        2080,
+        -160
+      ],
+      "id": "3eb73481-4f3a-445c-9eee-a231c864f103",
+      "name": "Slack Notification",
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_ME",
+          "name": "[Slack Bot]"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6,8,10,12 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        320
+      ],
+      "id": "4b02b847-9bed-4595-9552-db4f419e6af2",
+      "name": "Schedule (8, 10, 12, 14)"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "[NOTION_CPP_DB_ID]",
+          "mode": "id"
+        },
+        "returnAll": true,
+        "simple": false,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Status|status",
+              "condition": "equals",
+              "statusValue": "Ready"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        320
+      ],
+      "id": "f2a86def-df9d-4ec8-9d13-5b705246812f",
+      "name": "Get Ready Pages",
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_ME",
+          "name": "[Notion API (your integration)]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst out = [];\nfor (const item of $input.all()) {\n  const p = item.json.properties || {};\n  if ((p['Type']?.select?.name || '') !== 'Story') continue;\n  const due = p['Upload Date']?.date?.start;\n  if (!due) continue;\n  if (new Date(due) > now) continue;\n  out.push({ json: { pageId: item.json.id } });\n}\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        320
+      ],
+      "id": "beac5435-3809-4ee8-99d0-dac5207fdc83",
+      "name": "Filter Due Stories"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://[N8N_HOST]/webhook/story-now",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"pageId\": \"{{ $json.pageId }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        624,
+        320
+      ],
+      "id": "96479251-a9bd-4493-8b2e-2280bdd34176",
+      "name": "Trigger Story Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook — Story Now": {
+      "main": [
+        [
+          {
+            "node": "SET Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET Variables": {
+      "main": [
+        [
+          {
+            "node": "Get Story Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Story Page": {
+      "main": [
+        [
+          {
+            "node": "Extract Story Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Story Data": {
+      "main": [
+        [
+          {
+            "node": "Split Out Frames",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out Frames": {
+      "main": [
+        [
+          {
+            "node": "Download Frame",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Frame": {
+      "main": [
+        [
+          {
+            "node": "Upload Frame to S3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Frame to S3": {
+      "main": [
+        [
+          {
+            "node": "Build Frame URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Frame URL": {
+      "main": [
+        [
+          {
+            "node": "Loop Frames",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Frames": {
+      "main": [
+        [
+          {
+            "node": "Mark Story Posted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Story Container",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Story Container": {
+      "main": [
+        [
+          {
+            "node": "Wait 10s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 10s": {
+      "main": [
+        [
+          {
+            "node": "Publish Story Frame",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish Story Frame": {
+      "main": [
+        [
+          {
+            "node": "Loop Frames",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Story Posted": {
+      "main": [
+        [
+          {
+            "node": "Slack Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule (8, 10, 12, 14)": {
+      "main": [
+        [
+          {
+            "node": "Get Ready Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Ready Pages": {
+      "main": [
+        [
+          {
+            "node": "Filter Due Stories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Due Stories": {
+      "main": [
+        [
+          {
+            "node": "Trigger Story Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "pinData": {},
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
